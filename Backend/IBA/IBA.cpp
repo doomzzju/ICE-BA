@@ -93,37 +93,14 @@ Solver::~Solver() {
 void Solver::Create(const Calibration &K, const int serial, const int verbose, const int debug,
                     const int history, const std::string param, const std::string dir,
                     const std::vector<CameraIMUState> *XsGT, const std::vector<Depth> *dsGT) {
-#ifdef CFG_DEBUG
-  UT_ASSERT(m_internal == NULL);
-#endif
-  m_internal = new Internal();
-#ifdef CFG_DEBUG
-  UT_ASSERT(m_internal != NULL);
-#ifndef WIN32
-  UT_ASSERT((reinterpret_cast<std::uintptr_t>(m_internal) & (SIMD_ALIGN - 1)) == 0);
-#endif
-#endif
   Camera::Calibration &_K = m_internal->m_K;
   _K.m_K.Set(K.w, K.h, K.K.fx, K.K.fy, K.K.cx, K.K.cy, K.K.ds, K.fishEye);
   const Rigid3D Tu(K.Tu);
   _K.m_Ru = Tu;
   _K.m_pu = Tu.GetTranslation();
-#ifdef CFG_STEREO
-  const Rigid3D Tr(K.Tr);
-  _K.m_Kr.Set(K.w, K.h, K.Kr.fx, K.Kr.fy, K.Kr.cx, K.Kr.cy, K.Kr.ds, K.fishEye,
-              _K.m_K.fx(), _K.m_K.fy(), _K.m_K.cx(), _K.m_K.cy(), &Tr);
-  _K.m_Rr = Tr;
-  _K.m_br = Tr.GetTranslation().GetMinus();
-#endif
-//#ifdef CFG_DEBUG
-#if 0
-  UT::PrintSeparator();
-  _K.m_K.Print();
-  _K.m_Kr.Print();
-#endif
+
   _K.m_ba.Set(K.ba);
   _K.m_bw.Set(K.bw);
-  //_K.m_sa.Set(K.sa);
   LoadParameters(param);
   AlignedVector<Camera> &CsGT = m_internal->m_CsGT;
   if (XsGT) {
@@ -179,15 +156,6 @@ void Solver::Start() {
   m_internal->m_CsKF.resize(0);
   m_internal->m_ds.resize(0);
   m_internal->m_uds.resize(0);
-#ifdef CFG_GROUND_TRUTH
-  m_internal->m_usGT.Resize(0);
-  m_internal->m_iusGT.assign(1, 0);
-  m_internal->m_tsGT.resize(0);
-  m_internal->m_dsGT.resize(0);
-  m_internal->m_RsGT.Resize(0);
-  m_internal->m_TsGT.Resize(0);
-  m_internal->m_zsGT.resize(0);
-#endif
 }
 
 void Solver::Stop() {
@@ -196,16 +164,7 @@ void Solver::Stop() {
 }
 
 void Solver::PushCurrentFrame(const CurrentFrame &CF, const KeyFrame *KF, const bool serial) {
-//#ifdef CFG_DEBUG
-#if 0
-  if (KF && KF->iFrm == 0 && CF.iFrm != 0) {
-    KF = NULL;
-  }
-#endif
-  //UT::Print("[%d]\n", CF.iFrm);
   if (KF) {
-    //UT::Print("[%d]\n", KF->iFrm);
-    //UT::Print("%f\n", KF->C.R[0][0]);
     if (KF->iFrm == CF.iFrm) {
       m_internal->PushCurrentFrame(CF);
       m_internal->PushKeyFrame(*KF, &m_internal->m_ILF.m_C);

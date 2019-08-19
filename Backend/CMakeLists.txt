@@ -67,9 +67,9 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(CVD)
-find_package(Boost COMPONENTS thread system filesystem REQUIRED)
-find_package(Eigen REQUIRED)
-find_package(Glog REQUIRED)
+#find_package(Boost COMPONENTS thread system filesystem REQUIRED)
+#find_package(Eigen REQUIRED)
+#find_package(Glog REQUIRED)
 if (CVD_FOUND)
  add_definitions(-DIBA_WITH_CVD)
  find_package(OpenGL REQUIRED)
@@ -254,9 +254,9 @@ add_library(IBA SHARED
 target_include_directories(IBA PUBLIC
  ${IBA_INCLUDE_DIRS}
  ${CMAKE_CURRENT_SOURCE_DIR}
- ${EIGEN_INCLUDE_DIR}
- ${Boost_INCLUDE_DIR}
- ${GLOG_INCLUDE_DIRS}
+ #${EIGEN_INCLUDE_DIR}
+ #${Boost_INCLUDE_DIR}
+ #${GLOG_INCLUDE_DIRS}
 )
 target_link_libraries(IBA
  ${Boost_LIBRARIES}

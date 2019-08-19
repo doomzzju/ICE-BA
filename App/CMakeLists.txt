@@ -30,7 +30,7 @@ add_executable(back_end
 target_include_directories(back_end PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${GLOBAL_IBA_INCLUDE_DIRS}
-    ${EIGEN_INCLUDE_DIR}
+    #${EIGEN_INCLUDE_DIR}
 )
 target_link_libraries(back_end
     IBA

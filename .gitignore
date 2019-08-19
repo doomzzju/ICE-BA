@@ -1,0 +1,12 @@
+build/*
+*.ipch
+*.db
+*.db-shm
+*.db-wal
+*.vcxproj
+*.filters
+*.cmake
+*.stamp
+*.depend
+*.user
+*.sln

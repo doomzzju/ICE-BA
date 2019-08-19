@@ -32,43 +32,14 @@
 //#define LBA_DEBUG_PRINT_STEP
 #ifdef CFG_GROUND_TRUTH
 //#define LBA_DEBUG_GROUND_TRUTH_MEASUREMENT
-#endif
-//#define LBA_DEBUG_PRINT_MARGINALIZATION
 #define LBA_DEBUG_VIEW
 #ifdef LBA_DEBUG_VIEW
 #include "ViewerIBA.h"
 static ViewerIBA *g_viewer = NULL;
 #endif
 #endif
+//#define LBA_DEBUG_PRINT_MARGINALIZATION
 #endif
-
-#ifdef LBA_DEBUG_CHECK
-static const int g_ic = 0;
-//static const int g_ic = INT_MAX;
-static const int g_iKF = 1;
-//static const int g_iKF = INT_MAX;
-static const int g_ix = 8;
-static const int g_ist = 41;
-static const int g_izKF = 0;
-static const int g_izLF = 22;
-static const Rigid3D *g_CKF = NULL;
-static const LocalBundleAdjustor::KeyFrame *g_KF = NULL;
-static const Depth::InverseGaussian *g_d = NULL;
-static const FTR::Factor::FixSource::Source::A *g_Ax = NULL;
-static const FTR::Factor::FixSource::Source::A *g_AxST = NULL;
-static const FTR::Factor::FixSource::Source::M *g_MxST = NULL;
-static const FTR::Factor::FixSource::Source::M *g_Mx = NULL;
-static const FTR::Factor::Depth *g_AzKF = NULL;
-static const Camera *g_CLF = NULL;
-static const LocalBundleAdjustor::LocalFrame *g_LF = NULL;
-static const Camera::Factor::Unitary::CC *g_SAcuLF = NULL;
-static const Camera::Factor::Unitary::CC *g_SMcuLF = NULL;
-static const Camera::Factor *g_SAcmLF = NULL;
-static const FTR::Factor::FixSource::A1 *g_Az1LF = NULL;
-static const FTR::Factor::FixSource::A2 *g_Az2LF = NULL;
-static const FTR::Factor::FixSource::M1 *g_Mz1LF = NULL;
-static const FTR::Factor::FixSource::M2 *g_Mz2LF = NULL;
-static const FTR::Factor::DD *g_SmddST = NULL;
 #endif
 
 void LocalBundleAdjustor::Initialize(IBA::Solver *solver, const int serial, const int verbose,
@@ -83,37 +54,6 @@ void LocalBundleAdjustor::Initialize(IBA::Solver *solver, const int serial, cons
   m_debug = debug;
   m_history = history;
   m_dir = solver->m_internal->m_dir;
-#ifdef CFG_GROUND_TRUTH
-  m_CsGT = solver->m_internal->m_CsGT.Data();
-#ifdef LBA_DEBUG_GROUND_TRUTH_MEASUREMENT
-  if (m_CsGT) {
-    LA::AlignedVector3f ba, bw;
-    ba.MakeZero();
-    bw.MakeZero();
-    const int N = solver->m_internal->m_CsGT.Size();
-    for (int i = 0; i < N; ++i) {
-      const Camera &C = m_CsGT[i];
-      ba += C.m_ba;
-      bw += C.m_bw;
-    }
-    const float s = 1.0f / N;
-    ba *= s;
-    bw *= s;
-    Camera *Cs = (Camera *) m_CsGT;
-    for (int i = 0; i < N; ++i) {
-      Camera &C = Cs[i];
-      C.m_ba = ba;
-      C.m_bw = bw;
-    }
-  }
-#endif
-  m_dsGT = solver->m_internal->m_DsGT.empty() ? NULL : &solver->m_internal->m_dsGT;
-#ifdef CFG_HISTORY
-  if (m_history >= 3 && (!m_CsGT || !m_dsGT)) {
-    m_history = 2;
-  }
-#endif
-#endif
 }
 
 void LocalBundleAdjustor::Reset() {
@@ -147,9 +87,6 @@ void LocalBundleAdjustor::Reset() {
   m_ic2LF.reserve(LBA_MAX_LOCAL_FRAMES);    m_ic2LF.resize(0);
   m_LFs.reserve(LBA_MAX_LOCAL_FRAMES);      m_LFs.resize(0);
   m_CsLF.Reserve(LBA_MAX_LOCAL_FRAMES);     m_CsLF.Resize(0);
-#ifdef CFG_GROUND_TRUTH
-  m_CsLFGT.Reserve(LBA_MAX_LOCAL_FRAMES);   m_CsLFGT.Resize(0);
-#endif
   m_ucsLF.reserve(LBA_MAX_LOCAL_FRAMES);    m_ucsLF.resize(0);
   m_ucmsLF.reserve(LBA_MAX_LOCAL_FRAMES);   m_ucmsLF.resize(0);
 #ifdef CFG_INCREMENTAL_PCG
@@ -157,9 +94,7 @@ void LocalBundleAdjustor::Reset() {
   m_xmsLF.Reserve(LBA_MAX_LOCAL_FRAMES);    m_xmsLF.Resize(0);
 #endif
   m_DsLF.Reserve(LBA_MAX_LOCAL_FRAMES);     m_DsLF.Resize(0);
-#ifdef CFG_GROUND_TRUTH
-  m_DsLFGT.Reserve(LBA_MAX_LOCAL_FRAMES);   m_DsLFGT.Resize(0);
-#endif
+
   m_AdsLF.Reserve(LBA_MAX_LOCAL_FRAMES);    m_AdsLF.Resize(0);
   m_AfpsLF.Reserve(LBA_MAX_LOCAL_FRAMES);   m_AfpsLF.Resize(0);
   m_AfmsLF.Reserve(LBA_MAX_LOCAL_FRAMES);   m_AfmsLF.Resize(0);
@@ -170,9 +105,7 @@ void LocalBundleAdjustor::Reset() {
   m_KFs.resize(0);
   m_iFrmsKF.resize(0);
   m_CsKF.Resize(0);
-#ifdef CFG_GROUND_TRUTH
-  m_CsKFGT.Resize(0);
-#endif
+
   m_ucsKF.resize(0);
 #ifdef CFG_HANDLE_SCALE_JUMP
   m_dsKF.resize(0);
@@ -192,11 +125,7 @@ void LocalBundleAdjustor::Reset() {
   m_ZpLF.Initialize(BA_WEIGHT_PRIOR_CAMERA_INITIAL, BA_VARIANCE_PRIOR_VELOCITY_FIRST,
                     BA_VARIANCE_PRIOR_BIAS_ACCELERATION_FIRST,
                     BA_VARIANCE_PRIOR_BIAS_GYROSCOPE_FIRST);
-#ifdef LBA_DEBUG_GROUND_TRUTH_MEASUREMENT
-  if (m_CsGT) {
-    m_ZpLF.DebugSetMeasurement(m_CsGT[0]);
-  }
-#endif
+
   m_Zp.Initialize(m_ZpLF);
   m_ApLF.MakeZero();
   m_ZpKF.Invalidate();
@@ -256,131 +185,13 @@ void LocalBundleAdjustor::GetCamera(FRM::Tag &T, Camera &C) {
 }
 
 void LocalBundleAdjustor::Run() {
-#if 0
-//#if 1
-  if (m_debug) {
-    AssertConsistency();
-  }
-#endif
-#if 0
-  if (!m_ic2LF.empty()) {
-    const int iFrm = m_LFs[m_ic2LF.back()].m_T.m_iFrm;
-    UT::PrintSeparator('!');
-    UT::Print("[%d]\n", iFrm);
-  }
-#endif
   m_delta2 = BA_DL_RADIUS_INITIAL;
   m_ts[TM_TOTAL].Start();
   m_ts[TM_SYNCHRONIZE].Start();
   SynchronizeData();
   m_ts[TM_SYNCHRONIZE].Stop();
   m_ts[TM_TOTAL].Stop();
-#if 0
-//#if 1
-  if (m_debug) {
-    AssertConsistency();
-  }
-#endif
-//#ifdef CFG_DEBUG
-#if 0
-#ifdef WIN32
-  const std::string fileName = "D:/tmp/test/cons.txt";
-#else
-  const std::string fileName = "/tmp/test/cons.txt";
-#endif
-#if 1
-  FILE *fp = fopen(fileName.c_str(), "rb");
-  if (fp) {
-    AlignedVector<Camera> CsLF;
-    CsLF.LoadB(fp);
-    const int nLFs = static_cast<int>(m_LFs.size());
-    UT_ASSERT(CsLF.Size() == nLFs);
-    for (int iLF = 0; iLF < nLFs; ++iLF) {
-      m_CsLF[iLF].AssertEqual(CsLF[iLF], 1, UT::String("CsLF[%d]", iLF), -1.0f, -1.0f);
-    }
-    AlignedVector<Rigid3D> CsKF;
-    CsKF.LoadB(fp);
-    const int nKFs = static_cast<int>(m_KFs.size());
-    UT_ASSERT(CsKF.Size() == nKFs);
-    for (int iKF = 0; iKF < nKFs; ++iKF) {
-      m_CsKF[iKF].AssertEqual(CsKF[iKF], 1, UT::String("CsKF[%d]", iKF), -1.0f, -1.0f);
-    }
-    std::vector<Depth::InverseGaussian> ds;
-    UT::VectorLoadB(ds, fp);
-    const int Nd = static_cast<int>(m_ds.size());
-    UT_ASSERT(static_cast<int>(ds.size()) == Nd);
-    for (int id = 0; id < Nd; ++id) {
-      m_ds[id].AssertEqual(ds[id], 1, UT::String("ds[%d]", id), -1.0f);
-    }
-    fclose(fp);
-    UT::PrintLoaded(fileName);
-  }
-#else
-  FILE *fp = fopen(fileName.c_str(), "wb");
-  if (fp) {
-    m_CsLF.SaveB(fp);
-    m_CsKF.SaveB(fp);
-    UT::VectorSaveB(m_ds, fp);
-    fclose(fp);
-    UT::PrintSaved(fileName);
-  }
-#endif
-#endif
-#ifdef CFG_DEBUG
-  if (m_debug < 0) {
-    return;
-  }
-#endif
-//#ifdef CFG_DEBUG
-#if 0
-//#if 1
-  if (m_debug >= 2) {
-    AssertConsistency(false);
-  }
-#endif
-#ifdef LBA_DEBUG_EIGEN
-  DebugGenerateTracks();
-#endif
-#ifdef LBA_DEBUG_CHECK
-  {
-    const int nKFs = static_cast<int>(m_KFs.size());
-    if (nKFs != 0) {
-      const int iKF = g_iKF < nKFs ? g_iKF : nKFs - 1;
-      g_CKF = &m_CsKF[iKF];
-      g_KF = &m_KFs[iKF];
-      if (g_ix >= 0 && g_ix < int(g_KF->m_xs.size())) {
-        g_d = m_ds.data() + m_iKF2d[iKF] + g_ix;
-        g_Ax = &g_KF->m_Axs[g_ix];
-        g_Mx = &g_KF->m_Mxs[g_ix];
-        if (g_ist >= 0 && g_ist < g_KF->m_ix2ST[g_ix + 1] - g_KF->m_ix2ST[g_ix]) {
-          const int iST = g_KF->m_ix2ST[g_ix] + g_ist;
-          g_AxST = &g_KF->m_AxsST[iST];
-          g_MxST = &g_KF->m_MxsST[iST];
-        }
-      }
-      if (g_izKF >= 0 && g_izKF < g_KF->m_Azs.Size()) {
-        g_AzKF = &g_KF->m_Azs[g_izKF];
-      }
-    }
-    const int nLFs = int(m_LFs.size());
-    if (nLFs != 0) {
-      const int ic = g_ic >= 0 && g_ic < nLFs ? g_ic : nLFs - 1;
-      const int iLF = m_ic2LF[ic];
-      g_CLF = m_CsLF.Data() + iLF;
-      g_LF = &m_LFs[iLF];
-      g_SAcuLF = m_SAcusLF.Data() + iLF;
-      g_SMcuLF = m_SMcusLF.Data() + iLF;
-      g_SAcmLF = m_SAcmsLF.Data() + iLF;
-      if (g_izLF >= 0 && g_izLF < int(g_LF->m_zs.size())) {
-        g_Az1LF = &g_LF->m_Azs1[g_izLF];
-        g_Az2LF = &g_LF->m_Azs2[g_izLF];
-        g_Mz1LF = &g_LF->m_Mzs1[g_izLF];
-        g_Mz2LF = &g_LF->m_Mzs2[g_izLF];
-        g_SmddST = &g_LF->m_SmddsST[g_izLF];
-      }
-    }
-  }
-#endif
+
   const int iFrm = m_LFs[m_ic2LF.back()].m_T.m_iFrm;
 #ifdef CFG_VERBOSE
   if (m_verbose == 1) {
@@ -395,66 +206,9 @@ void LocalBundleAdjustor::Run() {
     UT::Print("  FrameLF = %d\t\t\tMeasurement = %d\tSchur = %d\n", m_LFs.size(), NzLF, NsLF);
     UT::Print("  FrameKF = %d\t\t\tMeasurement = %d\n", m_KFs.size(), NzKF);
     UT::Print("  TrackST = %d * %.2f = %d\n", Nd, UT::Percentage(NST, Nd), NST);
-#ifdef CFG_GROUND_TRUTH
-    if (!m_CsLFGT.Empty() && !m_CsKFGT.Empty() && !m_DsLFGT.Empty() && m_dsGT) {
-      UT::PrintSeparator();
-      PrintErrorStatistic("*GT: ", m_CsLFGT, m_CsKFGT, *m_dsGT, m_DsLFGT, true);
-    }
-#endif
   }
 #endif
-//#ifdef CFG_DEBUG
-#if 0
-//#if 1
-  {
-    UT::Check("Noise\n");
-    //const float erMax = 1.0f;
-    const float erMax = 10.0f;
-    //const float epMax = 0.0f;
-    const float epMax = 0.1f;
-    //const float epMax = 1.0f;
-    //const float evMax = 0.0f;
-    const float evMax = 0.01f;
-    //const float ebaMax = 0.0f;
-    const float ebaMax = 0.001f;
-    //const float ebwMax = 0.0f;
-    const float ebwMax = 1.0f * UT_FACTOR_DEG_TO_RAD;
-    //const float edMax = 0.0f;
-    const float edMax = 0.1f;
-    const ubyte ucmFlag = LBA_FLAG_CAMERA_MOTION_UPDATE_ROTATION |
-                          LBA_FLAG_CAMERA_MOTION_UPDATE_POSITION |
-                          LBA_FLAG_CAMERA_MOTION_UPDATE_VELOCITY |
-                          LBA_FLAG_CAMERA_MOTION_UPDATE_BIAS_ACCELERATION |
-                          LBA_FLAG_CAMERA_MOTION_UPDATE_BIAS_GYROSCOPE;
-    const int nLFs = static_cast<int>(m_LFs.size());
-    for (int iLF = 0; iLF < nLFs; ++iLF) {
-      Camera &C = m_CsLF[iLF];
-      C.m_T = Rotation3D::GetRandom(erMax * UT_FACTOR_DEG_TO_RAD) * C.m_T;
-      C.m_p += LA::AlignedVector3f::GetRandom(epMax);
-      C.m_T.SetPosition(C.m_p);
-      m_ucsLF[iLF] |= LBA_FLAG_FRAME_UPDATE_CAMERA;
-      C.m_v += LA::AlignedVector3f::GetRandom(evMax);
-      C.m_ba += LA::AlignedVector3f::GetRandom(ebaMax);
-      C.m_bw += LA::AlignedVector3f::GetRandom(ebwMax);
-      m_ucmsLF[iLF] |= ucmFlag;
-      m_UcsLF[iLF] |= LM_FLAG_FRAME_UPDATE_CAMERA_LF;
-    }
-    const int nKFs = static_cast<int>(m_KFs.size());
-    for (int iKF = 0; iKF < nKFs; ++iKF) {
-      const KeyFrame &KF = m_KFs[iKF];
-      Depth::InverseGaussian *ds = m_ds.data() + KF.m_id;
-      ubyte *uds = m_uds.data() + KF.m_id, *Uds = m_Uds.data() + KF.m_id;
-      const int Nx = static_cast<int>(KF.m_xs.size());
-      for (int ix = 0; ix < Nx; ++ix) {
-        ds[ix].u() += UT::Random<float>(edMax);
-        uds[ix] |= LBA_FLAG_TRACK_UPDATE_DEPTH;
-        Uds[ix] |= LM_FLAG_TRACK_UPDATE_DEPTH;
-      }
-      m_ucsKF[iKF] |= LBA_FLAG_FRAME_UPDATE_DEPTH;
-      m_UcsKF[iKF] |= LM_FLAG_FRAME_UPDATE_DEPTH;
-    }
-  }
-#endif
+
 #ifdef LBA_DEBUG_VIEW
   if (m_verbose >= 2) {
     //if (iFrm == 15)
@@ -473,97 +227,10 @@ void LocalBundleAdjustor::Run() {
     }
   }
 #endif
-#if 0
-//#if 1
-  {
-    UT::Check("Noise\n");
-    UpdateFactors();
-    UT::PrintSeparator();
-    PrintErrorStatistic("    ", m_CsLF, m_CsKF, m_ds, m_DsLF, false);
-    UT::Print("\n");
-    const float edMax = 1.0f;
-    const int Nd = int(m_ds.size());
-    for (int id = 0; id < Nd; ++id) {
-      if (m_uds[id] & LBA_FLAG_TRACK_UPDATE_DEPTH) {
-        m_ds[id].u() += UT::Random<float>(edMax);
-      }
-    }
-    UT::PrintSeparator();
-    PrintErrorStatistic("--> ", m_CsLF, m_CsKF, m_ds, m_DsLF, false);
-    UT::Print("\n");
-#ifdef LBA_DEBUG_VIEW
-    if (g_viewer) {
-      g_viewer->Run();
-    }
-#endif
-    EmbeddedPointIteration();
-    UT::PrintSeparator();
-    PrintErrorStatistic("--> ", m_CsLF, m_CsKF, m_ds, m_DsLF, false);
-    UT::Print("\n");
-#ifdef LBA_DEBUG_VIEW
-    if (g_viewer) {
-      g_viewer->Run();
-    }
-#endif
-  }
-#endif
+
   m_ts[TM_TOTAL].Start();
   for (m_iIter = 0; m_iIter < BA_MAX_ITERATIONS; ++m_iIter) {
-//#ifdef CFG_DEBUG
-#if 0
-    if (m_iIter == 2) {
-      m_debug = 3;
-    } else {
-      m_debug = 0;
-    }
-#endif
-//#ifdef CFG_DEBUG
-#if 0
-//#if 1
-    if (m_iIter == 0) {
-      UT::Check("Update\n");
-//#ifdef CFG_DEBUG
-#if 0
-      ((Depth::InverseGaussian *) g_d)->u() = 0.0f;
-#endif
-      const int Nc = int(m_LFs.size());
-      for (int ic = 0; ic < Nc; ++ic) {
-        const int iLF = m_ic2LF[ic];
-        m_ucsLF[iLF] |= LBA_FLAG_FRAME_UPDATE_CAMERA;
-        m_ucmsLF[iLF] |= LBA_FLAG_CAMERA_MOTION_UPDATE_ROTATION | LBA_FLAG_CAMERA_MOTION_UPDATE_POSITION |
-                         LBA_FLAG_CAMERA_MOTION_UPDATE_VELOCITY |
-                         LBA_FLAG_CAMERA_MOTION_UPDATE_BIAS_ACCELERATION | LBA_FLAG_CAMERA_MOTION_UPDATE_BIAS_GYROSCOPE;
-        m_UcsLF[iLF] |= LM_FLAG_FRAME_UPDATE_CAMERA_LF;
-        m_LFs[iLF].MakeZero();
-        if (ic == 0) {
-          continue;
-        }
-        IMU::Delta &D = m_DsLF[iLF];
-        const LocalFrame &LF = m_LFs[iLF];
-        const int _iLF = m_ic2LF[ic - 1];
-        IMU::PreIntegrate(LF.m_us, m_LFs[_iLF].m_T.m_t, LF.m_T.m_t, m_CsLF[_iLF], &D, &m_work,
-                          true, D.m_u1.Valid() ? &D.m_u1 : NULL, D.m_u2.Valid() ? &D.m_u2 : NULL,
-                          BA_ANGLE_EPSILON);
-      }
-      m_AdsLF.MakeZero();
-      m_AfpsLF.MakeZero();
-      m_AfmsLF.MakeZero();
-      const int nKFs = static_cast<int>(m_KFs.size());
-      for (int iKF = 0; iKF < nKFs; ++iKF) {
-        m_ucsKF[iKF] |= LBA_FLAG_FRAME_UPDATE_CAMERA | LBA_FLAG_FRAME_UPDATE_DEPTH;
-        m_UcsKF[iKF] |= LM_FLAG_FRAME_UPDATE_CAMERA_KF | LM_FLAG_FRAME_UPDATE_DEPTH;
-        m_KFs[iKF].MakeZero();
-      }
-      const int Nd = static_cast<int>(m_ds.size());
-      for (int id = 0; id < Nd; ++id) {
-        m_uds[id] |= LBA_FLAG_TRACK_UPDATE_DEPTH | LBA_FLAG_TRACK_UPDATE_INFORMATION_ZERO;
-        m_Uds[id] |= LM_FLAG_TRACK_UPDATE_DEPTH;
-      }
-      m_SAcusLF.MakeZero();
-      m_SMcusLF.MakeZero();
-      m_SAcmsLF.MakeZero();
-    }
-#endif
+
 #ifdef CFG_VERBOSE
     if (m_verbose) {
       if (m_verbose >= 2) {
@@ -580,69 +247,22 @@ void LocalBundleAdjustor::Run() {
       g_viewer->Run(true, false);
     }
 #endif
-#ifdef LBA_DEBUG_PRINT_STEP
-    UT::Print("\r[%d] UpdateFactors Start\t\t\t", iFrm);
-#endif
+
     m_ts[TM_FACTOR].Start();
     UpdateFactors();
     m_ts[TM_FACTOR].Stop();
-#ifdef LBA_DEBUG_EIGEN
-    DebugUpdateFactors();
-#endif
-#ifdef LBA_DEBUG_PRINT_STEP
-    UT::Print("\r[%d] UpdateFactors Stop\t\t\t", iFrm);
-#endif
-#if 0
-//#if 1
-    UT::DebugStart();
-    const ES ES1 = ComputeErrorStatistic(m_CsLF, m_CsKF, m_ds, m_DsLF);
-    SolveSchurComplementGT(&m_xs);
-    SolveBackSubstitutionGT(&m_xs);
-    const ES ES2 = ComputeErrorStatistic(m_CsLF, m_xs, false);
-    UT::DebugStop();
-#endif
-#ifdef LBA_DEBUG_PRINT_STEP
-    UT::Print("\r[%d] UpdateSchurComplement Start\t\t\t", iFrm);
-#endif
+
     m_ts[TM_SCHUR_COMPLEMENT].Start();
     UpdateSchurComplement();
     m_ts[TM_SCHUR_COMPLEMENT].Stop();
-#ifdef LBA_DEBUG_EIGEN
-    DebugUpdateSchurComplement();
-#endif
-#ifdef LBA_DEBUG_PRINT_STEP
-    UT::Print("\r[%d] UpdateSchurComplement Stop\t\t\t", iFrm);
-#endif
 
-#ifdef LBA_DEBUG_PRINT_STEP
-    UT::Print("\r[%d] SolveSchurComplement Start\t\t\t", iFrm);
-#endif
     m_ts[TM_CAMERA].Start();
     const bool scc = SolveSchurComplement();
     m_ts[TM_CAMERA].Stop();
-#ifdef LBA_DEBUG_EIGEN
-    DebugSolveSchurComplement();
-#endif
-#ifdef LBA_DEBUG_PRINT_STEP
-    UT::Print("\r[%d] SolveSchurComplement Stop\t\t\t", iFrm);
-#endif
-    //if (!scc) {
-    //  m_update = false;
-    //  m_converge = false;
-    //  break;
-    //}
-#ifdef LBA_DEBUG_PRINT_STEP
-    UT::Print("\r[%d] SolveBackSubstitution Start\t\t\t", iFrm);
-#endif
+
     m_ts[TM_DEPTH].Start();
     SolveBackSubstitution();
     m_ts[TM_DEPTH].Stop();
-#ifdef LBA_DEBUG_EIGEN
-    DebugSolveBackSubstitution();
-#endif
-#ifdef LBA_DEBUG_PRINT_STEP
-    UT::Print("\r[%d] SolveBackSubstitution Stop\t\t\t", iFrm);
-#endif
 
 #ifdef CFG_VERBOSE
     const int N = UT::PrintStringWidth();
@@ -653,29 +273,16 @@ void LocalBundleAdjustor::Run() {
     const int nItersDL = std::max(BA_DL_MAX_ITERATIONS, 1);
     for (m_iIterDL = 0; m_iIterDL < nItersDL; ++m_iIterDL) {
       if (m_x2GN > m_delta2 && m_xsGD.Empty() && BA_DL_MAX_ITERATIONS > 0) {
-#ifdef LBA_DEBUG_PRINT_STEP
-        UT::Print("\r[%d] SolveGradientDescent Start\t\t\t", iFrm);
-#endif
         m_ts[TM_UPDATE].Start();
         SolveGradientDescent();
         m_ts[TM_UPDATE].Stop();
-#ifdef LBA_DEBUG_EIGEN
-        DebugSolveGradientDescent();
-#endif
-#ifdef LBA_DEBUG_PRINT_STEP
-        UT::Print("\r[%d] SolveGradientDescent Stop\t\t\t", iFrm);
-#endif
       }
-#ifdef LBA_DEBUG_PRINT_STEP
-      UT::Print("\r[%d] SolveDogLeg Start\t\t\t", iFrm);
-#endif
+
       m_ts[TM_UPDATE].Start();
       SolveDogLeg();
       UpdateStatesPropose();
       m_ts[TM_UPDATE].Stop();
-#ifdef LBA_DEBUG_PRINT_STEP
-      UT::Print("\r[%d] SolveDogLeg Stop\t\t\t", iFrm);
-#endif
+
 #ifdef CFG_VERBOSE
       if (m_verbose) {
         if (m_verbose >= 3) {
@@ -694,9 +301,7 @@ void LocalBundleAdjustor::Run() {
 #endif
         break;
       }
-#ifdef LBA_DEBUG_PRINT_STEP
-      UT::Print("\r[%d] ComputeReduction Start\t\t\t", iFrm);
-#endif
+
       m_ts[TM_UPDATE].Start();
       ComputeReduction();
       m_ts[TM_UPDATE].Stop();
@@ -709,42 +314,27 @@ void LocalBundleAdjustor::Run() {
         }
       }
 #endif
-#ifdef LBA_DEBUG_EIGEN
-      DebugComputeReduction();
-#endif
-#ifdef LBA_DEBUG_PRINT_STEP
-      UT::Print("\r[%d] ComputeReduction Stop\t\t\t", iFrm);
-#endif
-#ifdef LBA_DEBUG_PRINT_STEP
-      UT::Print("\r[%d] UpdateStatesDecide Start\t\t\t", iFrm);
-#endif
+
       m_ts[TM_UPDATE].Start();
       const bool accept = UpdateStatesDecide();
       m_ts[TM_UPDATE].Stop();
-#ifdef LBA_DEBUG_PRINT_STEP
-      UT::Print("\r[%d] UpdateStatesDecide Stop\t\t\t", iFrm);
-#endif
+
       if (accept) {
         break;
       }
     }
     if (m_iIterDL == BA_DL_MAX_ITERATIONS) {
-#ifdef LBA_DEBUG_PRINT_STEP
-      UT::Print("\r[%d] UpdateStatesDecide Start\t\t\t", iFrm);
-#endif
+
       m_ts[TM_UPDATE].Start();
       UpdateStatesDecide();
       m_ts[TM_UPDATE].Stop();
-#ifdef LBA_DEBUG_PRINT_STEP
-      UT::Print("\r[%d] UpdateStatesDecide Stop\t\t\t", iFrm);
-#endif
+
     }
-//#ifdef CFG_DEBUG
-#if 1
+
     if (m_debug >= 2) {
       AssertConsistency();
     }
-#endif
+
     if (!m_update || m_converge) {
       break;
     }
@@ -794,84 +384,11 @@ void LocalBundleAdjustor::Run() {
       hist.m_ESa = ComputeErrorStatistic(m_CsLF, m_CsKF, m_ds, m_DsLF);
       hist.m_ESb = ComputeErrorStatistic(m_CsLFBkp, m_CsKF, m_dsBkp, m_DsLF);
       hist.m_ESp = ComputeErrorStatistic(m_CsLFBkp, m_CsKF, m_dsBkp, m_xsDL, false);
-#ifdef CFG_GROUND_TRUTH
-      if (m_CsGT) {
-        SolveSchurComplementGT(m_CsLFBkp, &m_xsGT);
-        if (m_dsGT) {
-          if (m_history >= 3) {
-            EmbeddedPointIteration(m_CsLFGT, m_CsKFGT, m_ucsKFGT, m_udsGT, m_dsGT);
-          }
-          SolveBackSubstitutionGT(m_dsBkp, &m_xsGT);
-          hist.m_ESaGT = ComputeErrorStatistic(m_CsLFGT, m_CsKFGT, *m_dsGT, m_DsLFGT);
-          hist.m_ESpGT = ComputeErrorStatistic(m_CsLFBkp, m_CsKFBkp, m_dsBkp, m_xsGT, false);
-        }
-      }
-#endif
+
       const int N = m_bs.Size();
       m_xsGN.Resize(N);
       hist.m_R = ComputeResidual(m_xsGN);
-#ifdef CFG_GROUND_TRUTH
-      if (m_CsGT) {
-        m_xsGT.Resize(N);
-        hist.m_RGT = ComputeResidual(m_xsGT);
-        const int iLF0 = m_ic2LF.front();
-        const Camera &C = m_CsLFGT[iLF0];
-        m_CsKFGT.Push(C.m_T);
-        const float eps = 0.0f;
-        const float epsr = UT::Inverse(BA_VARIANCE_MAX_ROTATION, BA_WEIGHT_FEATURE, eps);
-        const float epsp = UT::Inverse(BA_VARIANCE_MAX_POSITION, BA_WEIGHT_FEATURE, eps);
-        const float epsv = UT::Inverse(BA_VARIANCE_MAX_VELOCITY, BA_WEIGHT_FEATURE, eps);
-        const float epsba = UT::Inverse(BA_VARIANCE_MAX_BIAS_ACCELERATION, BA_WEIGHT_FEATURE, eps);
-        const float epsbw = UT::Inverse(BA_VARIANCE_MAX_BIAS_GYROSCOPE, BA_WEIGHT_FEATURE, eps);
-        const float _eps[] = {epsp, epsp, epsp, epsr, epsr, epsr, epsv, epsv, epsv,
-                              epsba, epsba, epsba, epsbw, epsbw, epsbw};
-        LA::AlignedMatrixXf S;
-        LA::AlignedVectorXf x;
-        float xTb;
-        if (m_ZpKF.Valid()) {
-          if (m_ZpKF.GetPriorMeasurement(BA_WEIGHT_FEATURE, &S, &x, &xTb, &m_work, _eps)) {
-            CameraPrior::Pose::Error e;
-            m_ZpKF.GetError(m_CsKFGT, &e, BA_ANGLE_EPSILON);
-            hist.m_PSKF.m_F = m_ZpKF.GetCost(1.0f / BA_WEIGHT_FEATURE, e) - xTb;
-            ComputePriorStatisticPose(m_ZpKF, m_CsKFGT, S, x, &hist.m_PSKF);
-          } else {
-            hist.m_PSKF.Invalidate();
-          }
-        }
-        //if (m_ZpLF.Valid()) {
-        if (m_Zp.Pose::Valid()) {
-          if (m_Zp.GetPriorMotion(&m_ZpLF, &m_work, _eps) &&
-              m_ZpLF.GetPriorMeasurement(BA_WEIGHT_FEATURE, &S, &x, &xTb, &m_work, _eps + 6)) {
-            CameraPrior::Motion::Error e;
-            m_ZpLF.GetError(C, &e);
-            hist.m_PSLF.m_F = m_ZpLF.GetCost(1.0f / BA_WEIGHT_FEATURE, e) - xTb;
-            ComputePriorStatisticMotion(m_ZpLF, C, S, x, &hist.m_PSLF);
-          } else {
-            hist.m_PSLF.Invalidate();
-          }
-        }
-        if (m_Zp.Pose::Valid()) {
-#ifdef CFG_DEBUG
-          UT_ASSERT(m_Zp.m_iKFs.back() == INT_MAX);
-#endif
-          if (m_Zp.GetPriorMeasurement(BA_WEIGHT_FEATURE, &S, &x, &xTb, &m_work, _eps)) {
-            CameraPrior::Joint::Error e;
-            m_Zp.GetError(m_CsKFGT, C, &e, BA_ANGLE_EPSILON);
-            hist.m_PS.m_F = m_Zp.GetCost(1.0f  / BA_WEIGHT_FEATURE, e) - xTb;
-            ComputePriorStatisticJoint(m_Zp, m_CsKFGT, C, S, x, &hist.m_PS);
-            if (hist.m_PSKF.Valid()) {
-              hist.m_PSKF.SetMotion(hist.m_PS);
-            }
-            if (hist.m_PSLF.Valid()) {
-              hist.m_PSLF.SetPose(hist.m_PS);
-            }
-          } else {
-            hist.m_PS.Invalidate();
-          }
-        }
-        m_CsKFGT.Resize(m_CsKFGT.Size() - 1);
-      }
-#endif
+
       if (m_Zp.Pose::Valid()) {
         hist.m_MSLP = ComputeMarginalizationStatistic();
         if (m_MH.SolveLDL(&m_work)) {
@@ -879,325 +396,28 @@ void LocalBundleAdjustor::Run() {
         } else {
           hist.m_MSEM.Invalidate();
         }
-#ifdef CFG_GROUND_TRUTH
-        if (m_CsGT) {
-          hist.m_MSGT = ComputeMarginalizationStatistic(&m_MH.m_xGT);
-        } else {
-          hist.m_MSGT.Invalidate();
-        }
-#endif
       }
     }
     m_hists.push_back(hist);
   }
 #endif
-#if 0
-//#if 1
-  UT::PrintSeparator();
-  UT::Print("Time = %f\n", m_ts[TM_TOTAL].GetAverageMilliseconds() * 1000.0);
-#endif
+
 #ifdef LBA_DEBUG_VIEW
   if (g_viewer) {
-    //g_viewer->m_keyPause = true;
-    //g_viewer->m_keyPause = m_verbose >= 3;
     g_viewer->Run();
-    //delete g_viewer;
-  }
-#endif
-#if 0
-//#if 1
-  {
-    FILE *fp = fopen(UT::String("D:/tmp/%04d.txt", iFrm).c_str(), "rb");
-    m_CsLF.LoadB(fp);
-    m_CsLFLP.LoadB(fp);
-    UT::VectorLoadB(m_ucsLF, fp);
-    UT::VectorLoadB(m_ucmsLF, fp);
-    UT::VectorLoadB(m_UcsLF, fp);
-    m_CsKF.LoadB(fp);
-    m_CsKFLP.LoadB(fp);
-    UT::VectorLoadB(m_ucsKF, fp);
-    UT::VectorLoadB(m_UcsKF, fp);
-    UT::VectorLoadB(m_ds, fp);
-    UT::VectorLoadB(m_dsLP, fp);
-    UT::VectorLoadB(m_uds, fp);
-    UT::VectorLoadB(m_Uds, fp);
-    fclose(fp);
-  }
-#endif
-  UpdateData();
-//#ifdef CFG_DEBUG
-#if 1
-  //if (!m_serial && m_debug)
-  if (m_debug) {
-    AssertConsistency();
-  }
-#endif
-#if 0
-//#if 1
-  {
-    FILE *fp = fopen(UT::String("D:/tmp/%04d.txt", iFrm).c_str(), "wb");
-    m_CsLF.SaveB(fp);
-    m_CsLFLP.SaveB(fp);
-    UT::VectorSaveB(m_ucsLF, fp);
-    UT::VectorSaveB(m_ucmsLF, fp);
-    UT::VectorSaveB(m_UcsLF, fp);
-    m_CsKF.SaveB(fp);
-    m_CsKFLP.SaveB(fp);
-    UT::VectorSaveB(m_ucsKF, fp);
-    UT::VectorSaveB(m_UcsKF, fp);
-    UT::VectorSaveB(m_ds, fp);
-    UT::VectorSaveB(m_dsLP, fp);
-    UT::VectorSaveB(m_uds, fp);
-    UT::VectorSaveB(m_Uds, fp);
-    fclose(fp);
-  }
-#endif
-//#ifdef CFG_DEBUG
-#if 0
-  if (m_KFs.size() == 2) {
-    UT::PrintSeparator();
-    m_CsKF[0].Print(true);
-    UT::PrintSeparator();
-    m_CsKF[1].Print(true);
-  }
-#endif
-#ifdef LBA_DEBUG_PRINT
-  {
-    Camera Cc;
-    Rigid3D Ck;
-    Camera::Factor::Unitary::CC A;
-    Camera::Factor::Binary::CC M;
-    double Su, Ss2, Sadd, SmddST;
-    UT::PrintSeparator('*');
-    for (int i = 0; i < 2; ++i) {
-      if (i == 0) {
-        const int Nc = static_cast<int>(m_LFs.size());
-        const int ic = Nc - 1, iLF = m_ic2LF[ic];
-        const LocalFrame &LF = m_LFs[iLF];
-        const int iKFNearest = LF.m_iKFNearest == -1 ? LF.m_iKFsMatch.front() : LF.m_iKFNearest;
-        UT::Print("[%d] <-- [%d]\n", LF.m_T.m_iFrm, m_KFs[iKFNearest].m_T.m_iFrm);
-        Cc = m_CsLF[iLF];
-        Ck.MakeIdentity();
-        const int NkKF = static_cast<int>(LF.m_iKFsMatch.size());
-        for (int ik = 0; ik < NkKF; ++ik)
-          Ck = m_CsKF[LF.m_iKFsMatch[ik]] * Ck;
-        A = m_SAcusLF[iLF] - m_SMcusLF[iLF];
-        M.MakeZero();
-        const int NkLF = std::min(Nc, LBA_MAX_SLIDING_TRACK_LENGTH) - 1;
-        xp128f sm; sm.vdup_all_lane(1.0f / NkLF);
-        for (int ik = 0, _ic = ic - 1; ik < NkLF; ++ik, --_ic) {
-          const int _iLF = m_ic2LF[_ic];
-          const LocalFrame &_LF = m_LFs[_iLF];
-#ifdef CFG_DEBUG
-          UT_ASSERT(_LF.m_iLFsMatch.back() == iLF);
-#endif
-          M += _LF.m_Zm.m_SMczms.Back() * sm;
-        }
-        Su = Ss2 = Sadd = SmddST = 0.0;
-        const int NZ = static_cast<int>(LF.m_Zs.size());
-        for (int iZ = 0; iZ < NZ; ++iZ) {
-          const FRM::Measurement &Z = LF.m_Zs[iZ];
-          const KeyFrame &KF = m_KFs[Z.m_iKF];
-          const Depth::InverseGaussian *ds = m_ds.data() + KF.m_id;
-          for (int iz = Z.m_iz1; iz < Z.m_iz2; ++iz) {
-            const int ix = LF.m_zs[iz].m_ix;
-            const Depth::InverseGaussian &d = ds[ix];
-            Su = d.u() + Su;
-            Ss2 = d.s2() + Ss2;
-            Sadd = KF.m_Axps[ix].m_Sadd.m_a + Sadd;
-            SmddST = LF.m_SmddsST[iz].m_a + SmddST;
-#ifdef CFG_DEBUG
-            UT::Print("%d %.10e %.10e\n", iz, d.u(), Su);
-#endif
-//#ifdef CFG_DEBUG
-#if 0
-            UT::Print("%d %.10e %.10e\n", iz, SmddST, LF.m_SmddsST[iz].m_a);
-#endif
-          }
-        }
-      } else {
-        Cc.MakeIdentity();
-        Ck.MakeIdentity();
-        A.MakeZero();
-        M.MakeZero();
-        Su = Ss2 = Sadd = SmddST = 0.0;
-        const xp128f sc = xp128f::get(1.0f / nLFs);
-        const xp128f sm = xp128f::get(1.0f / (CountSchurComplements() - nLFs));
-        for (int iLF = 0; iLF < nLFs; ++iLF) {
-          const Camera &C = m_CsLF[iLF];
-          Cc.m_T = C.m_T * Cc.m_T;
-          Cc.m_v += C.m_v * sc;
-          Cc.m_ba += C.m_ba * sc;
-          Cc.m_bw += C.m_bw * sc;
-          A += (m_SAcusLF[iLF] - m_SMcusLF[iLF]) * sc;
-//#ifdef CFG_DEBUG
-#if 0
-          UT::Print("%d %.10e\n", iLF, A.m_A.m00());
-#endif
-          const LocalFrame &LF = m_LFs[iLF];
-          const int Nk = static_cast<int>(LF.m_iLFsMatch.size());
-          for (int ik = 0; ik < Nk; ++ik) {
-            M += LF.m_Zm.m_SMczms[ik] * sm;
-          }
-        }
-        const int nKFs = static_cast<int>(m_KFs.size());
-        for (int iKF = 0; iKF < nKFs; ++iKF) {
-          Ck = m_CsKF[iKF] * Ck;
-          const KeyFrame &KF = m_KFs[iKF];
-          const Depth::InverseGaussian *ds = m_ds.data() + KF.m_id;
-          const int Nx = static_cast<int>(KF.m_xs.size());
-          for (int ix = 0; ix < Nx; ++ix) {
-            const Depth::InverseGaussian &d = ds[ix];
-            Su = d.u() + Su;
-            Ss2 = d.s2() + Ss2;
-            Sadd = KF.m_Axps[ix].m_Sadd.m_a + Sadd;
-          }
-        }
-        for (int iLF = 0; iLF < nLFs; ++iLF) {
-          const LocalFrame &LF = m_LFs[iLF];
-          const int Nz = static_cast<int>(LF.m_zs.size());
-          for (int iz = 0; iz < Nz; ++iz) {
-            SmddST = LF.m_SmddsST[iz].m_a + SmddST;
-          }
-        }
-      }
-      UT::Print("C:\n");
-      Cc.m_T.Print(true);
-      Cc.m_v.Print("", true, false);
-      Cc.m_ba.Print(" ", true, false);
-      Cc.m_bw.Print(" ", true, true);
-      Ck.Print(true);
-      UT::Print("A:\n");
-      A.Print(true);
-      M.Print(true);
-      UT::Print("d: %.10e %.10e %.10e %.10e\n", Su, Ss2, Sadd, SmddST);
-    }
-    UT::PrintSeparator('*');
-  }
-  const float xGN = m_xsGN.Mean(), s2GN = m_xsGN.Variance(xGN);
-  const float xGD = m_xsGD.Mean(), s2GD = m_xsGD.Variance(xGD);
-  const float xDL = m_xsDL.Mean(), s2DL = m_xsDL.Variance(xDL);
-  UT::Print("x: %e %e %e %e %e %e\n", xGN, xGD, xDL, s2GN, s2GD, s2DL);
-#endif
-//#ifndef WIN32
-#if 0
-  UT::Print("[%d]\n", iFrm);
-#endif
-//#ifdef CFG_DEBUG
-#if 0
-  UT::Print("%.10e\n", m_SAcusLF[m_ic2LF.back()].m_b.v0());
-#endif
-//#ifdef CFG_DEBUG
-#if 0
-  {
-    const LocalFrame &LF = m_LFs[m_ic2LF.back()];
-    const int NZ = static_cast<int>(LF.m_Zs.size());
-    for (int iZ = 0; iZ < NZ; ++iZ) {
-      const FRM::Measurement &Z = LF.m_Zs[iZ];
-      const Depth::InverseGaussian *ds = m_ds.data() + m_KFs[Z.m_iKF].m_id;
-      for (int iz = Z.m_iz1; iz < Z.m_iz2; ++iz) {
-        const int ix = LF.m_zs[iz].m_ix;
-        UT::Print("%d (%d %d) %.10e\n", iz, Z.m_iKF, ix, ds[ix].u());
-      }
-    }
-  }
-#endif
-//#ifdef CFG_DEBUG
-#if 0
-  const LA::AlignedVector3f &v = m_CsLF[m_ic2LF.back()].m_v;
-  //const LA::AlignedVector3f &v = m_CsLF[m_ic2LF.back()].m_bw;
-  UT::Print("[%d] %.10e %.10e %.10e\n", iFrm, v.x(), v.y(), v.z());
-#endif
-//#ifdef CFG_DEBUG
-#if 0
-  for (int iLF = 0; iLF < nLFs; ++iLF) {
-    const int _iFrm = m_LFs[iLF].m_T.m_iFrm;
-    //if (_iFrm == 1500) {
-    //  UT::Print("[%d] %.10e\n", iFrm, m_SAcusLF[iLF].m_b.v4());
-    if (_iFrm == 1506)
-      UT::Print("[%d] %.10e\n", iFrm, m_DsLF[iLF].m_Jpbw.m00());
   }
 #endif
 
+  UpdateData();
+
+  if (m_debug) {
+    AssertConsistency();
+  }
+
   // Trigger LBA callback function if set
   if (m_callback) {
-    //UT::Print("Trigger LBA callback [iFrm, ts]  = [%d, %f]\n", iFrm,
-    //          m_LFs[m_ic2LF.back()].m_T.m_t);
     m_callback(iFrm, m_LFs[m_ic2LF.back()].m_T.m_t);
   }
-//#ifdef CFG_DEBUG
-#if 0
-  static int g_iFrm = -1, g_cnt = 0;
-  if (iFrm == g_iFrm) {
-    ++g_cnt;
-  } else {
-    g_iFrm = iFrm;
-    g_cnt = 0;
-  }
-  const std::string suffix = g_cnt == 0 ? "" : UT::String("_%d", g_cnt);
-#ifdef WIN32
-  const std::string fileName = UT::String("D:/tmp/test/cons/%04d%s.txt", iFrm, suffix.c_str());
-#else
-  const std::string fileName = UT::String("/tmp/test/%04d%s.txt", iFrm, suffix.c_str());
-#endif
-#if 0
-//#if 1
-  UT::FilesStartSaving(fileName);
-  FILE *fp = fopen(fileName.c_str(), "wb");
-  if (fp) {
-    m_SAcusLF.SaveB(fp);
-    m_SMcusLF.SaveB(fp);
-    m_SAcmsLF.SaveB(fp);
-    m_CsKF.SaveB(fp);
-    m_CsLF.SaveB(fp);
-    UT::VectorSaveB(m_ds, fp);
-    UT::VectorSaveB(m_uds, fp);
-    fclose(fp);
-    UT::PrintSaved(fileName);
-  }
-#else
-  FILE *fp = fopen(fileName.c_str(), "rb");
-  if (fp) {
-    AlignedVector<Camera::Factor::Unitary::CC> SAcusLF, SMcusLF;
-    AlignedVector<Camera::Factor> SAcmsLF;
-    SAcusLF.LoadB(fp);
-    SMcusLF.LoadB(fp);
-    SAcmsLF.LoadB(fp);
-    const int nLFs = static_cast<int>(m_LFs.size());
-    UT_ASSERT(SAcusLF.Size() == nLFs && SMcusLF.Size() == nLFs && SAcmsLF.Size() == nLFs);
-    for (int iLF = 0; iLF < nLFs; ++iLF) {
-      m_SAcusLF[iLF].AssertEqual(SAcusLF[iLF], 1, UT::String("SAcusLF[%d]", iLF), -1.0f, -1.0f);
-      m_SMcusLF[iLF].AssertEqual(SMcusLF[iLF], 1, UT::String("SMcusLF[%d]", iLF), -1.0f, -1.0f);
-      m_SAcmsLF[iLF].AssertEqual(SAcmsLF[iLF], 1, UT::String("SAcmsLF[%d]", iLF), -1.0f, -1.0f);
-    }
-    AlignedVector<Rigid3D> CsKF;
-    CsKF.LoadB(fp);
-    const int nKFs = static_cast<int>(m_KFs.size());
-    UT_ASSERT(CsKF.Size() == nKFs);
-    for (int iKF = 0; iKF < nKFs; ++iKF) {
-      m_CsKF[iKF].AssertEqual(CsKF[iKF], 1, UT::String("CsKF[%d]", iKF), -1.0f, -1.0f);
-    }
-    AlignedVector<Camera> CsLF;
-    CsLF.LoadB(fp);
-    UT_ASSERT(CsLF.Size() == nLFs);
-    for (int iLF = 0; iLF < nLFs; ++iLF) {
-      m_CsLF[iLF].AssertEqual(CsLF[iLF], 1, UT::String("CsLF[%d]", iLF), -1.0f, -1.0f);
-    }
-    std::vector<Depth::InverseGaussian> ds;
-    std::vector<ubyte> uds;
-    UT::VectorLoadB(ds, fp);
-    UT::VectorLoadB(uds, fp);
-    const int Nd = static_cast<int>(m_ds.size());
-    UT_ASSERT(static_cast<int>(ds.size()) == Nd);
-    for (int id = 0; id < Nd; ++id) {
-      m_ds[id].AssertEqual(ds[id], 1, UT::String("ds[%d]", id), -1.0f);
-      UT_ASSERT(m_uds[id] == uds[id]);
-    }
-    fclose(fp);
-    UT::PrintLoaded(fileName);
-  }
-#endif
-#endif
 }
 
 void LocalBundleAdjustor::SetCallback(const IBA::Solver::IbaCallback& iba_callback) {
@@ -1618,9 +838,6 @@ float LocalBundleAdjustor::GetTotalDistance() {
 }
 
 void LocalBundleAdjustor::SynchronizeData() {
-#ifdef CFG_DEBUG
-  UT_ASSERT(m_ITs2.empty());
-#endif
   const int iFrm = m_ic2LF.empty() ? MT_TASK_NONE : m_LFs[m_ic2LF.back()].m_T.m_iFrm;
   MT_WRITE_LOCK_BEGIN(m_MT, iFrm, MT_TASK_LBA_SynchronizeData);
   m_ITs1.swap(m_ITs2);
@@ -1633,12 +850,7 @@ void LocalBundleAdjustor::SynchronizeData() {
   m_UcsLF.assign(m_LFs.size(), LM_FLAG_FRAME_DEFAULT);
   m_UcsKF.assign(m_KFs.size(), LM_FLAG_FRAME_DEFAULT);
   m_Uds.assign(m_ds.size(), LM_FLAG_TRACK_DEFAULT);
-#if defined CFG_GROUND_TRUTH && defined CFG_HISTORY
-  if (m_history >= 3) {
-    m_ucsKFGT.assign(m_KFs.size(), LBA_FLAG_FRAME_DEFAULT);
-    m_udsGT.assign(m_ds.size(), LBA_FLAG_TRACK_DEFAULT);
-  }
-#endif
+
   for (std::list<InputLocalFrame>::iterator ILF = m_ILFs2.begin(); ILF != m_ILFs2.end(); ++ILF) {
     if (ILF->m_C.m_T.Valid() && ILF->m_C.m_v.Valid()) {
       continue;
@@ -1646,13 +858,6 @@ void LocalBundleAdjustor::SynchronizeData() {
     Camera C;
     if (m_LFs.empty()) {
       IMU::InitializeCamera(ILF->m_us, C);
-#ifdef LBA_DEBUG_GROUND_TRUTH_MEASUREMENT
-//#if 0
-      if (m_CsGT) {
-        const LA::AlignedVector3f g = m_CsGT[ILF->m_T.m_iFrm].m_T.GetGravity();
-        C.MakeIdentity(&g);
-      }
-#endif
     } else {
       float _t;
       Camera _C;
@@ -1708,38 +913,7 @@ void LocalBundleAdjustor::SynchronizeData() {
       LA::Vector3f Rx;
       LA::SymmetricMatrix2x2f W;
       const int NX = static_cast<int>(IKF->m_Xs.size());
-#ifdef CFG_DEBUG
-      for (int iX = 0; iX < NX; ++iX) {
-        const GlobalMap::Point &X = IKF->m_Xs[iX];
-        if (iX > 0) {
-          UT_ASSERT(X.m_iKF >= IKF->m_Xs[iX - 1].m_iKF);
-        }
-        X.AssertConsistency();
-      }
-#endif
-#ifdef LBA_DEBUG_GROUND_TRUTH_MEASUREMENT
-      if (m_CsGT && m_dsGT) {
-        const std::vector<int> &iKF2d = m_solver->m_internal->m_iKF2d;
-        const Rigid3D &C = m_CsGT[IKF->m_T.m_iFrm].m_T;
-        for (int iX1 = 0, iX2 = 0; iX1 < NX; iX1 = iX2) {
-          const int iKF = IKF->m_Xs[iX1].m_iKF;
-          for (iX2 = iX1 + 1; iX2 < NX && IKF->m_Xs[iX2].m_iKF == iKF; ++iX2) {}
-          const int Nx = iKF < m_CsKFGT.Size() ? m_iKF2d[iKF + 1] - m_iKF2d[iKF] : 0;
-          const Depth::InverseGaussian *ds = m_dsGT->data() + iKF2d[iKF] + Nx - iX1;
-          for (int iX = iX1; iX < iX2; ++iX) {
-            GlobalMap::Point &X = IKF->m_Xs[iX];
-            const Depth::InverseGaussian &d = ds[iX];
-            if (X.m_x.m_xr.Valid()) {
-              FTR::DebugSetMeasurement(m_K.m_br, d, X.m_x);
-            }
-            if (!X.m_zs.empty()) {
-              DebugSetFeatureMeasurements(C, m_CsKFGT, d, &X);
-            }
-          }
-        }
-        DebugSetFeatureMeasurements(C, m_CsKFGT, *m_dsGT, iKF2d, &(*IKF));
-      }
-#endif
+
       if (IKF->m_C.Invalid()) {
         for (std::list<InputLocalFrame>::iterator ILF = m_ILFs2.begin(); ILF != m_ILFs2.end(); ++ILF) {
           if (ILF->m_T == IKF->m_T) {
@@ -1759,11 +933,7 @@ void LocalBundleAdjustor::SynchronizeData() {
       m_CsKFBkp.Push(IKF->m_C.m_T);
       const int nKFs = m_CsKFBkp.Size();
       m_R12s.Resize(nKFs);
-#ifdef CFG_STEREO
-      m_t12s.Resize(nKFs << 1);
-#else
       m_t12s.Resize(nKFs);
-#endif
       for (int iX1 = 0, iX2 = 0; iX1 < NX; iX1 = iX2) {
         const int iKF = IKF->m_Xs[iX1].m_iKF;
         const Rigid3D &C = m_CsKFBkp[iKF];
@@ -1772,66 +942,33 @@ void LocalBundleAdjustor::SynchronizeData() {
         for (int iX = iX1; iX < iX2; ++iX) {
           GlobalMap::Point &X = IKF->m_Xs[iX];
           m_zds.resize(0);
-#ifdef CFG_STEREO
-          if (X.m_x.m_xr.Valid()) {
-            Rx.Set(X.m_x.m_x.x(), X.m_x.m_x.y(), 1.0f);
-            X.m_x.m_Wr.GetScaled(w, W);
-            m_zds.push_back(Depth::Measurement(m_K.m_br, Rx, X.m_x.m_xr, W));
-          }
-#endif
+
           const int Nz = static_cast<int>(X.m_zs.size());
           for (int i = 0; i < Nz; ++i) {
             const FTR::Measurement &z = X.m_zs[i];
             Rotation3D &R = m_R12s[z.m_iKF];
-#ifdef CFG_STEREO
-            LA::AlignedVector3f *t = m_t12s.Data() + (z.m_iKF << 1);
-#else
             LA::AlignedVector3f *t = m_t12s.Data() + z.m_iKF;
-#endif
+
             if (!m_marksTmp1[z.m_iKF]) {
               const Rigid3D &_C = m_CsKFBkp[z.m_iKF];
               if (_C.Valid()) {
                 const Rigid3D T = _C / C;
                 R = T;
                 T.GetTranslation(*t);
-#ifdef CFG_STEREO
-                LA::AlignedVector3f::apb(t[0], m_K.m_br, t[1]);
-#endif
               } else {
                 R.Invalidate();
                 t->Invalidate();
-#ifdef CFG_STEREO
-                t[1].Invalidate();
-#endif
               }
               m_marksTmp1[z.m_iKF] = 1;
             }
             if (R.Valid()) {
               R.Apply(X.m_x.m_x, Rx);
-#ifdef CFG_STEREO
-              if (z.m_z.Valid()) {
-                z.m_W.GetScaled(w, W);
-                m_zds.push_back(Depth::Measurement(t[0], Rx, z.m_z, W));
-              }
-              if (z.m_zr.Valid()) {
-                z.m_Wr.GetScaled(w, W);
-                m_zds.push_back(Depth::Measurement(t[1], Rx, z.m_zr, W));
-              }
-#else
+
               z.m_W.GetScaled(w, W);
               m_zds.push_back(Depth::Measurement(*t, Rx, z.m_z, W));
-#endif
             }
           }
-//#ifdef CFG_DEBUG
-#if 0
-          const KeyFrame &KF = m_KFs[iKF];
-          const int ix = static_cast<int>(KF.m_xs.size()) + iX - iX1;
-          if (KF.m_T.m_iFrm == 1041 && ix == 431) {
-            UT::DebugStart();
-            X.m_d.Print();
-          }
-#endif
+
           float eAvg;
           const int Nzd = static_cast<int>(m_zds.size());
           if (!Depth::Triangulate(w, Nzd, m_zds.data(), &X.m_d, &m_work, X.m_d.Valid(), &eAvg) ||
@@ -1853,15 +990,6 @@ void LocalBundleAdjustor::SynchronizeData() {
               }
             }
           }
-          //UT::Print("%d %f %f\n", iX, X.m_d.u(), X.m_d.s2());
-//#ifdef CFG_DEBUG
-#if 0
-          if (UT::Debugging()) {
-            UT::DebugStop();
-            X.m_d.Print();
-            Depth::ComputeError(Nzd, m_zds.data(), X.m_d);
-          }
-#endif
         }
       }
       ++IKF;
@@ -1873,13 +1001,7 @@ void LocalBundleAdjustor::SynchronizeData() {
     m_ITs2.pop_front();
     if (IT == IT_LOCAL_FRAME) {
       InputLocalFrame &ILF = m_ILFs2.front();
-#ifdef LBA_DEBUG_GROUND_TRUTH_MEASUREMENT
-      const std::vector<Depth::InverseGaussian> &dsGT = m_solver->m_internal->m_dsGT;
-      if (m_CsGT && !dsGT.empty()) {
-        DebugSetFeatureMeasurements(m_CsGT[ILF.m_T.m_iFrm].m_T, m_CsKFGT, dsGT,
-                                    m_solver->m_internal->m_iKF2d, &ILF);
-      }
-#endif
+
       if (ILF.m_d.Invalid()) {
         if (m_LFs.empty()) {
           ILF.m_d.Initialize();
@@ -1961,11 +1083,7 @@ void LocalBundleAdjustor::SynchronizeData() {
       if (ILF.m_iKFNearest == -1 && Nk != 0) {
         if (LBA_MARGINALIZATION_REFERENCE_NEAREST) {
           const int iKFMax = ILF.m_iKFsMatch.back();
-#ifdef CFG_DEBUG
-          if (iKFMax >= nKFs) {
-            UT_ASSERT(iKFMax == nKFs);
-          }
-#endif
+
           ubyte first = 1;
           int iKFNearest = m_Zp.m_iKFr == -1 ? nKFs - 1 : m_Zp.m_iKFr;
           float imgMotionNearest = FLT_MAX;
@@ -2041,9 +1159,7 @@ void LocalBundleAdjustor::SynchronizeData() {
       const int NX = static_cast<int>(IKF.m_Xs.size());
       for (int iX = 0; iX < NX; ++iX) {
         GlobalMap::Point &X = IKF.m_Xs[iX];
-#ifdef CFG_DEBUG
-        UT_ASSERT(X.m_iKF <= nKFs);
-#endif
+
         if (X.m_d.Invalid()) {
           X.m_d.Initialize(X.m_iKF == nKFs ? IKF.m_d.u() : m_KFs[X.m_iKF].m_d.u());
         }
@@ -2071,80 +1187,11 @@ void LocalBundleAdjustor::SynchronizeData() {
     m_ts[TM_SYNCHRONIZE].Start();
     m_ts[TM_TOTAL].Start();
   }
-#if 0
-//#if 1
-  m_IT->RunView();
-#endif
+
   if (!m_iFrmsKF.empty() &&
-      m_GM->LBA_Synchronize(m_iFrmsKF.back(), m_CsKF, m_CsKFBkp, m_marksTmp1
-#ifdef CFG_HANDLE_SCALE_JUMP
-                          , m_dsKF, m_dsKFBkp
-#endif
-                          )) {
-#ifdef CFG_HANDLE_SCALE_JUMP
-    AlignedVector<float> &ss = m_work;
-    ss.Resize(0);
-    const ubyte ucmFlag = LBA_FLAG_CAMERA_MOTION_UPDATE_ROTATION |
-                          LBA_FLAG_CAMERA_MOTION_UPDATE_POSITION |
-                          LBA_FLAG_CAMERA_MOTION_UPDATE_VELOCITY;
-    const int nKFs = static_cast<int>(m_KFs.size());
-    for (int iKF = 0; iKF < nKFs; ++iKF) {
-      if ((m_marksTmp1[iKF] & GM_FLAG_FRAME_UPDATE_DEPTH) &&
-          fabs(m_dsKF[iKF] - m_dsKFBkp[iKF]) > BA_UPDATE_FRAME_DEPTH) {
-        ss.Push(m_dsKF[iKF] / m_dsKFBkp[iKF]);
-      }
-    }
-    if (ss.Size() > static_cast<int>(nKFs * BA_UPDATE_FRAME_DEPTH_RATIO + 0.5f)) {
-      const int ith = ss.Size() >> 1;
-      std::nth_element(ss.Data(), ss.Data() + ith, ss.End());
-      const float s = ss[ith], sI = 1.0f / s;
-      const xp128f _sI = xp128f::get(s);
-      const int nLFs = static_cast<int>(m_LFs.size());
-      for (int iLF = 0; iLF < nLFs; ++iLF) {
-        Camera &C = m_CsLF[iLF];
-        C.m_T.ScaleTranslation(sI);
-        C.m_p *= _sI;
-        C.m_v *= _sI;
-        m_ucsLF[iLF] |= LBA_FLAG_FRAME_UPDATE_CAMERA;
-        m_ucmsLF[iLF] |= ucmFlag;
-        m_UcsLF[iLF] = LM_FLAG_FRAME_UPDATE_CAMERA_LF;
-      }
-      const float s2 = s * s;
-      for (int iKF = 0; iKF < nKFs; ++iKF) {
-        if (m_marksTmp1[iKF] & GM_FLAG_FRAME_UPDATE_CAMERA) {
-          m_CsKFBkp[iKF].ScaleTranslation(sI);
-        }/* else {
-          m_CsKF[iKF].ScaleTranslation(sI);
-          m_ucsKF[iKF] |= LBA_FLAG_FRAME_UPDATE_CAMERA;
-          m_UcsKF[iKF] |= LM_FLAG_FRAME_UPDATE_CAMERA_KF;
-        }*/
-        const int id = m_iKF2d[iKF], Nx = m_iKF2d[iKF + 1] - id;
-        Depth::InverseGaussian *ds = m_ds.data() + id;
-        ubyte *uds = m_uds.data() + id;
-        for (int ix = 0; ix < Nx; ++ix) {
-          Depth::InverseGaussian &d = ds[ix];
-          d.u() *= s;
-          d.s2() *= s2;
-          uds[ix] |= LBA_FLAG_TRACK_UPDATE_DEPTH;
-        }
-        if (Nx > 0) {
-          m_ucsKF[iKF] |= LBA_FLAG_FRAME_UPDATE_DEPTH;
-          m_UcsKF[iKF] |= LM_FLAG_TRACK_UPDATE_DEPTH;
-        }
-      }
-    }
-#endif
+      m_GM->LBA_Synchronize(m_iFrmsKF.back(), m_CsKF, m_CsKFBkp, m_marksTmp1)) {
     UpdateCameras(m_marksTmp1, m_CsKFBkp, m_CsKF);
   }
-//#ifdef CFG_DEBUG
-#if 0
-  if (m_KFs.size() == 2) {
-    UT::PrintSeparator();
-    m_CsKF[0].Print(true);
-    UT::PrintSeparator();
-    m_CsKF[1].Print(true);
-  }
-#endif
 }
 
 void LocalBundleAdjustor::UpdateData() {

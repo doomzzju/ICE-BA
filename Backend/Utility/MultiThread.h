@@ -19,25 +19,12 @@
 // TODO(mingyu): Update to use c++11 std::mutex & lock
 #define MT_SCOPE_LOCK_BEGIN(m) { boost::mutex::scoped_lock sl(m);
 #define MT_SCOPE_LOCK_END(m) }
-#ifdef CFG_DEBUG_MT
-#define MT_READ_LOCK_BEGIN(m, iFrm, iTask) MT::Begin(iFrm, iTask);\
-                                           { boost::shared_lock<boost::shared_mutex> rl(m);\
-
-#define MT_READ_LOCK_END(m, iFrm, iTask) } MT::End(iFrm, iTask);
-
-#define MT_WRITE_LOCK_BEGIN(m, iFrm, iTask) MT::Begin(iFrm, iTask);\
-                                            { boost::upgrade_lock<boost::shared_mutex> wl1(m);\
-                                              boost::upgrade_to_unique_lock<boost::shared_mutex> wl2(wl1);\
-
-#define MT_WRITE_LOCK_END(m, iFrm, iTask) } MT::End(iFrm, iTask);
-#else
 #define MT_READ_LOCK_BEGIN(m, iFrm, iTask) { boost::shared_lock<boost::shared_mutex> rl(m);
 #define MT_READ_LOCK_END(m, iFrm, iTask) }
 #define MT_WRITE_LOCK_BEGIN(m, iFrm, iTask) { boost::upgrade_lock<boost::shared_mutex> wl1(m);\
                                               boost::upgrade_to_unique_lock<boost::shared_mutex> wl2(wl1);\
 
 #define MT_WRITE_LOCK_END(m, iFrm, iTask) }
-#endif
 
 #define MT_FLAG_DEFAULT 0
 #define MT_FLAG_SAVE    1
