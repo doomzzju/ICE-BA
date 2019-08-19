@@ -81,17 +81,6 @@
 
 namespace MT {
 
-#ifdef CFG_DEBUG_MT
-void Start(const std::string fileName, const int flag = MT_FLAG_DEFAULT);
-void Stop();
-void Begin(const int iFrm, const int task);
-void End(const int iFrm, const int task);
-void Synchronize(const int iFrm, const int task, const std::string str = "");
-void Print(const int iFrm, const int task, const std::string str = "");
-void SaveB(FILE *fp);
-void LoadB(FILE *fp);
-#endif
-
 class Thread {
 
  public:
