@@ -355,14 +355,6 @@ class LocalBundleAdjustor : public MT::Thread {
       m_SmddsST.Resize(Nz); m_SmddsST.MakeZero();
       m_iLFsMatch.resize(0);
       m_Zm.Initialize();
-#ifdef CFG_DEBUG
-      for (int iz = 0; iz < Nz; ++iz) {
-        m_STs[iz].Invalidate();
-        m_Azs1[iz].m_adcz.Invalidate();
-        m_Mzs1[iz].m_adcz.Invalidate();
-        m_AzsST[iz].m_adc.Invalidate();
-      }
-#endif
     }
     inline void DeleteKeyFrame(const int iKF,
                                const std::vector<FRM::Measurement>::iterator *iZ = NULL) {
@@ -1657,21 +1649,21 @@ class LocalBundleAdjustor : public MT::Thread {
   Camera::Fix::Origin m_Zo;
   Camera::Fix::Origin::Factor m_Ao;
 
+  // m_LFs中局部帧的index，m_LFs总长度达到滑窗上限以后，就不再删除里面的元素，
+  // 最新的LF永远对应m_ic2LF中最后一个的index，例如滑窗上限为10，m_ic2LF中
+  // 就是0-9，当0对应的LF被pop掉时，顺序就变成了1-9，0
   std::vector<int> m_ic2LF;
+  // 存放LF的，最大长度滑窗上限，达到上限以后内部只改写内存，不改变地址，最新的LF不一定在最后，根据m_ic2LF来对应
   std::vector<LocalFrame> m_LFs;
   AlignedVector<Camera> m_CsLF;
-#ifdef CFG_GROUND_TRUTH
-  AlignedVector<Camera> m_CsLFGT;
-#endif
+
   std::vector<ubyte> m_ucsLF, m_ucmsLF;
 #ifdef CFG_INCREMENTAL_PCG
   AlignedVector<LA::Vector6f> m_xcsLF;
   AlignedVector<LA::Vector9f> m_xmsLF;
 #endif
   AlignedVector<IMU::Delta> m_DsLF;
-#ifdef CFG_GROUND_TRUTH
-  AlignedVector<IMU::Delta> m_DsLFGT;
-#endif
+
   AlignedVector<IMU::Delta::Factor> m_AdsLF;
   AlignedVector<Camera::Fix::PositionZ::Factor> m_AfpsLF;
   AlignedVector<Camera::Fix::Motion::Factor> m_AfmsLF;
