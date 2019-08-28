@@ -85,9 +85,6 @@ class Rigid3D : public Rotation3D {
            r20() == M.r20() && r21() == M.r21() && r22() == M.r22() && tz() == M.tz();
   }
   inline Point3D operator * (const Point3D &X) const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(X.w() == 1.0f);
-#endif
     Point3D TX;
     Apply(X, TX);
     return TX;
@@ -204,17 +201,11 @@ class Rigid3D : public Rotation3D {
   inline Rigid3D GetInverse() const { Rigid3D T; GetInverse(T); return T; }
 
   inline void Apply(const Point3D &X, LA::AlignedVector3f &TX) const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(X.w() == 1.0f);
-#endif
     TX.x() = (r00_r01_r02_tx() * X.xyzw()).vsum_all();
     TX.y() = (r10_r11_r12_ty() * X.xyzw()).vsum_all();
     TX.z() = (r20_r21_r22_tz() * X.xyzw()).vsum_all();
   }
   inline bool Apply(const Point3D &X, Point2D &x) const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(X.w() == 1.0f);
-#endif
     x.y() = (r20_r21_r22_tz() * X.xyzw()).vsum_all();
     if (x.y() < 0.0f) {
       return false;
@@ -225,9 +216,6 @@ class Rigid3D : public Rotation3D {
     return true;
   }
   inline bool Apply(const Point3D &X, Point2D &x, float &z) const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(X.w() == 1.0f);
-#endif
     z = (r20_r21_r22_tz() * X.xyzw()).vsum_all();
     if (z < 0.0f) {
       return false;
@@ -239,9 +227,6 @@ class Rigid3D : public Rotation3D {
   }
   inline LA::AlignedVector3f GetApplied(const Point3D &X) const { LA::AlignedVector3f TX; Apply(X, TX); return TX; }
   inline float GetAppliedZ(const Point3D &X) const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(X.w() == 1.0f);
-#endif
     return (r20_r21_r22_tz() * X.xyzw()).vsum_all();
   }
   inline void ApplyRotation(const LA::AlignedVector3f &X, LA::AlignedVector3f &RX) const { Rotation3D::Apply(X, RX); }

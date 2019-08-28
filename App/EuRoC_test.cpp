@@ -1,5 +1,6 @@
 #include "EuRoC_test.h"
 
+#define SHOW_POSE
 int main(int argc, char** argv) {
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
@@ -8,13 +9,23 @@ int main(int argc, char** argv) {
     google::ShowUsageWithFlags(argv[0]);
     return -1;
   }
+  
+  // Load IMU samples to predict OF point locations
+  std::list<XP::ImuData> imu_samples;
+  std::string imu_file = FLAGS_imgs_folder + "/mav0/imu0/data.csv";
+  uint64_t offset_ts_ns;
+  if (load_imu_data(imu_file, &imu_samples, offset_ts_ns) > 0) {
+    std::cout << "Load imu data. Enable OF prediciton with gyro\n";
+  } else {
+    std::cout << "Cannot load imu data.\n";
+    return -1;
+  }
+  
   vector<string> img_file_paths;
-  vector<string> slave_img_file_paths;
   vector<string> iba_dat_file_paths;
 
   constexpr int reserve_num = 5000;
   img_file_paths.reserve(reserve_num);
-  slave_img_file_paths.reserve(reserve_num);
   fs::path p(FLAGS_imgs_folder + "/mav0/cam0");
   if (!fs::is_directory(p)) {
     LOG(ERROR) << p << " is not a directory";
@@ -28,11 +39,7 @@ int main(int argc, char** argv) {
   for (int i=0; i<limg_name.size(); i++) {
     string l_png = p.string() + "/data/" + limg_name[i];
     img_file_paths.push_back(l_png);
-    slave_img_file_paths.push_back(FLAGS_imgs_folder + "/mav0/cam1/data/" + rimg_name[i]);
     iba_dat_file_paths.push_back(FLAGS_imgs_folder + "/dat/" + limg_name[i] + ".dat");
-  }
-  if (!FLAGS_stereo) {
-    slave_img_file_paths.clear();
   }
 
   if (img_file_paths.size() == 0) {
@@ -58,17 +65,7 @@ int main(int argc, char** argv) {
       std::cout << "camera " << lr << " fov: " << fov << " deg\n";
     }
   }
-
-  // Load IMU samples to predict OF point locations
-  std::list<XP::ImuData> imu_samples;
-  std::string imu_file = FLAGS_imgs_folder + "/mav0/imu0/data.csv";
-  uint64_t offset_ts_ns;
-  if (load_imu_data(imu_file, &imu_samples, offset_ts_ns) > 0) {
-    std::cout << "Load imu data. Enable OF prediciton with gyro\n";
-  } else {
-    std::cout << "Cannot load imu data.\n";
-    return -1;
-  }
+  
   // Adjust end image index for detection
   if (FLAGS_end_idx < 0 || FLAGS_end_idx > img_file_paths.size()) {
     FLAGS_end_idx = img_file_paths.size();
@@ -84,20 +81,14 @@ int main(int argc, char** argv) {
                                                !FLAGS_not_use_fast,
                                                FLAGS_uniform_radius,
                                                duo_calib_param.Camera.img_size);
-  XP::ImgFeaturePropagator slave_img_feat_propagator(
-      duo_calib_param.Camera.cameraK_lr[1],  // cur_camK
-      duo_calib_param.Camera.cameraK_lr[0],  // ref_camK
-      duo_calib_param.Camera.cv_dist_coeff_lr[1],  // cur_dist_coeff
-      duo_calib_param.Camera.cv_dist_coeff_lr[0],  // ref_dist_coeff
-      masks[1],
-      FLAGS_pyra_level,
-      FLAGS_min_feature_distance_over_baseline_ratio,
-      FLAGS_max_feature_distance_over_baseline_ratio);
   const Eigen::Matrix4f T_Cl_Cr =
       duo_calib_param.Camera.D_T_C_lr[0].inverse() * duo_calib_param.Camera.D_T_C_lr[1];
+      
+#ifdef SHOW_POSE
   XP::PoseViewer pose_viewer;
   pose_viewer.set_clear_canvas_before_draw(true);
-
+#endif //SHOW_POSE
+  
   IBA::Solver solver;
   Eigen::Vector3f last_position = Eigen::Vector3f::Zero();
   float travel_dist = 0.f;
@@ -111,6 +102,7 @@ int main(int argc, char** argv) {
                 257,
                 FLAGS_iba_param_path,
                 "" /* iba directory */);
+#ifdef SHOW_POSE
   solver.SetCallbackLBA([&](const int iFrm, const float ts) {
 #ifndef __DUO_VIO_TRACKER_NO_DEBUG__
     VLOG(1) << "===== start ibaCallback at ts = " << ts;
@@ -138,8 +130,9 @@ int main(int argc, char** argv) {
     last_position = cur_position;
     pose_viewer.addPose(W_vio_T_S, speed_and_biases, travel_dist);
   });
+#endif // SHOW_POSE
   solver.Start();
-
+  
   float prev_time_stamp = 0.0f;
   // load previous image
   std::vector<cv::KeyPoint> pre_image_key_points;
@@ -158,7 +151,7 @@ int main(int argc, char** argv) {
       return -1;
     }
     // get timestamp from image file name (s)
-    const float time_stamp = get_timestamp_from_img_name(img_file_paths[it_img], offset_ts_ns);
+    const float time_stamp = get_timestamp_from_img_name(img_file_paths[it_img], offset_ts_ns) + timedelay;
     std::vector<cv::KeyPoint> key_pnts;
     cv::Mat orb_feat;
     cv::Mat pre_img_in_smooth;
@@ -186,13 +179,6 @@ int main(int argc, char** argv) {
               << " -> " << imu_meas.back().time_stamp;
     }
 
-    if (!slave_img_file_paths.empty()) {
-      if (!slave_img_file_paths[it_img].empty()) {
-        cv::Mat slave_img_in;
-        slave_img_in = cv::imread(slave_img_file_paths[it_img], CV_LOAD_IMAGE_GRAYSCALE);
-        cv::blur(slave_img_in, slave_img_smooth, cv::Size(3, 3));
-      }
-    }
     // use optical flow  from the 1st frame
     if (it_img != FLAGS_start_idx) {
       CHECK(it_img >= 1);
@@ -267,21 +253,6 @@ int main(int argc, char** argv) {
       feat_track_detector.build_img_pyramids(img_in_smooth,
                                              XP::FeatureTrackDetector::BUILD_TO_PREV);
     }
-    if (slave_img_smooth.rows > 0) {
-      CHECK(orb_feat_slave.empty());
-      auto det_slave_img_start = std::chrono::high_resolution_clock::now();
-      slave_img_feat_propagator.PropagateFeatures(slave_img_smooth,  // cur
-                                                  img_in_smooth,  // ref
-                                                  key_pnts,
-                                                  T_Cl_Cr,  // T_ref_cur
-                                                  &key_pnts_slave,
-                                                  &orb_feat_slave,
-                                                  false);  // draw_debug
-      VLOG(1) << "detect slave key_pnts.size(): " << key_pnts_slave.size() << " takes "
-              << std::chrono::duration_cast<std::chrono::microseconds>(
-                  std::chrono::high_resolution_clock::now() - det_slave_img_start).count() / 1e3
-              << " ms";
-    }
 
     std::sort(key_pnts.begin(), key_pnts.end(), cmp_by_class_id);
     std::sort(key_pnts_slave.begin(), key_pnts_slave.end(), cmp_by_class_id);
@@ -289,19 +260,24 @@ int main(int argc, char** argv) {
     IBA::CurrentFrame CF;
     IBA::KeyFrame KF;
     create_iba_frame(key_pnts, key_pnts_slave, imu_meas, time_stamp, &CF, &KF);
+    CF.fileName = img_file_paths[it_img];
     solver.PushCurrentFrame(CF, KF.iFrm == -1 ? nullptr : &KF);
     if (FLAGS_save_feature) {
       IBA::SaveCurrentFrame(iba_dat_file_paths[it_img], CF, KF);
     }
     pre_image_key_points = key_pnts;
     pre_image_features = orb_feat.clone();
+#ifdef SHOW_POSE
     // show pose
     pose_viewer.displayTo("trajectory");
+#endif // SHOW_POSE
     cv::waitKey(1);
     prev_time_stamp = time_stamp;
+    
   }
   std::string temp_file = "/tmp/" + std::to_string(offset_ts_ns) + ".txt";
   solver.SaveCamerasGBA(temp_file, false /* append */, true /* pose only */);
+//   solver.SaveCamerasLBA(temp_file, false /* append */, true /* pose only */);
   solver.Stop();
   solver.Destroy();
 

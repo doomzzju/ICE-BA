@@ -18,11 +18,6 @@
 #include "Parameter.h"
 #include "VectorN.h"
 
-//#ifdef CFG_DEBUG
-#if 1
-//#define DEPTH_TRI_VERBOSE  1
-//#define DEPTH_TRI_VERBOSE  2
-#endif
 #define DEPTH_TRI_DOG_LEG
 
 namespace Depth {
@@ -32,22 +27,8 @@ bool Triangulate(const float w, const LA::AlignedVector3f &t12, const Point2D &x
   float x;
   LA::Vector2f J, e, WJ;
   d->Initialize();
-#if 0
-  if (Wx2) {
-    if (!Triangulate(t12, x1, x2, d)) {
-      return false;
-    }
-  }
-#endif
-#ifdef DEPTH_TRI_VERBOSE
-  const float f = 500.0f;
-#if DEPTH_TRI_VERBOSE == 1
-  UT::Print("e = %f", f * sqrtf((d->GetProjected(t12, x1) - x2).SquaredLength()));
-#endif
-#endif
-#ifdef DEPTH_TRI_DOG_LEG
+
   float delta = DEPTH_TRI_DL_RADIUS_INITIAL;
-#endif
   const float eps = 0.0f;
   for (int iIter = 0; iIter < DEPTH_TRI_MAX_ITERATIONS; ++iIter) {
     d->Project(t12, x1, e, J);
@@ -67,7 +48,7 @@ bool Triangulate(const float w, const LA::AlignedVector3f &t12, const Point2D &x
     } else {
       x = -d->s2() * J.Dot(e);
     }
-#ifdef DEPTH_TRI_DOG_LEG
+
     const float xGN = x;
     const float F = Wx2 ? LA::SymmetricMatrix2x2f::MahalanobisDistance(*Wx2, e) :
                           e.SquaredLength();
@@ -109,31 +90,7 @@ bool Triangulate(const float w, const LA::AlignedVector3f &t12, const Point2D &x
     if (!update || converge) {
       break;
     }
-#else
-    d->u() = x + d->u();
-    if (fabs(x) < DEPTH_TRI_CONVERGE) {
-      break;
-    }
-#endif
-#if defined DEPTH_TRI_VERBOSE && DEPTH_TRI_VERBOSE == 2
-    const std::string str = UT::String("%02d  ", iIter);
-    if (iIter == 0) {
-      UT::PrintSeparator();
-      UT::Print("%se = %f\n", std::string(str.size(), ' ').c_str(),
-                f * sqrtf((InverseGaussian(0.0f).GetProjected(t12, x1) - x2).SquaredLength()));
-    }
-    UT::Print("%se = %f  z = %f  x = %f\n", str.c_str(),
-              f * sqrtf((d->GetProjected(t12, x1) - x2).SquaredLength()), 1.0f / d->u(), x);
-#endif
   }
-#if defined DEPTH_TRI_VERBOSE && DEPTH_TRI_VERBOSE == 1
-  UT::Print(" --> %f  z = %f  s = %f", f * sqrtf((d->GetProjected(t12, x1) - x2).SquaredLength()),
-            1.0f / d->u(), sqrtf(d->s2()));
-  if (!d->Valid()) {
-    UT::Print("  FAIL");
-  }
-  UT::Print("\n");
-#endif
   d->s2() = DEPTH_VARIANCE_EPSILON + d->s2() * w;
   return d->Valid();
 }
@@ -160,7 +117,6 @@ bool Triangulate(const float w, const int N, const Measurement *zs, InverseGauss
     d->Initialize();
   }
   float a, b, x;
-#ifdef DEPTH_TRI_DOG_LEG
   float F, Fa, Fp;
   const int Nx2 = N + N;
   LA::AlignedVectorXf J, e, ep, _w;
@@ -174,29 +130,15 @@ bool Triangulate(const float w, const int N, const Measurement *zs, InverseGauss
   AlignedVector<LA::Vector2f> Jis(J.Data(), N, false);
   AlignedVector<LA::Vector2f> eis(e.Data(), N, false);
   AlignedVector<LA::Vector2f> epis(ep.Data(), N, false);
-#else
-  LA::Vector2f Ji, ei;
-#endif
   LA::Vector2f WJi;
-#ifdef DEPTH_TRI_VERBOSE
-  const float f = 500.0f;
-#if DEPTH_TRI_VERBOSE == 1
-  UT::Print("e = %f", f * ComputeError(N, zs, *d));
-#else if DEPTH_TRI_VERBOSE == 2
-  const InverseGaussian d0 = *d;
-#endif
-#endif
-#ifdef DEPTH_TRI_DOG_LEG
+
   float delta = DEPTH_TRI_DL_RADIUS_INITIAL;
-#endif
   const float eps = 0.0f;
   for (int iIter = 0; iIter < DEPTH_TRI_MAX_ITERATIONS; ++iIter) {
     a = b = 0.0f;
     for (int i = 0; i < N; ++i) {
       const Measurement &z = zs[i];
-#ifdef DEPTH_TRI_DOG_LEG
       LA::Vector2f &Ji = Jis[i], &ei = eis[i];
-#endif
       d->Project(*z.m_t, z.m_Rx, ei, Ji);
       ei -= z.m_z;
       LA::SymmetricMatrix2x2f::Ab(z.m_W, Ji, WJi);
@@ -204,27 +146,17 @@ bool Triangulate(const float w, const int N, const Measurement *zs, InverseGauss
         const float r2 = LA::SymmetricMatrix2x2f::MahalanobisDistance(z.m_W, ei);
         const float wi = ME::Weight<ME::FUNCTION_HUBER>(r2);
         WJi *= wi;
-#ifdef DEPTH_TRI_DOG_LEG
         _w[i] = wi;
-#endif
-#if 0
-//#if 1
-        UT::Print("%d %f\n", i, wi);
-#endif
       }
       a += WJi.Dot(Ji);
       b += WJi.Dot(ei);
-#if 0
-//#if 1
-      UT::Print("%d %f %f\n", i, a, b);
-#endif
     }
     if (a <= eps) {
       return false;
     }
     d->s2() = 1.0f / a;
     x = -d->s2() * b;
-#ifdef DEPTH_TRI_DOG_LEG
+
     const float xGN = x;
     F = 0.0f;
     for (int i = 0; i < N; ++i) {
@@ -282,30 +214,7 @@ bool Triangulate(const float w, const int N, const Measurement *zs, InverseGauss
     if (!update || converge) {
       break;
     }
-#else
-    d->u() = x + d->u();
-    if (fabs(x) < DEPTH_TRI_CONVERGE) {
-      break;
-    }
-#endif
-#if defined DEPTH_TRI_VERBOSE && DEPTH_TRI_VERBOSE == 2
-    const std::string str = UT::String("%02d  ", iIter);
-    if (iIter == 0) {
-      UT::PrintSeparator();
-      UT::Print("%se = %f  z = %f\n", std::string(str.size(), ' ').c_str(),
-                f * ComputeError(N, zs, d0), 1.0f / d0.u());
-    }
-    UT::Print("%se = %f  z = %f  x = %f\n", str.c_str(), f * ComputeError(N, zs, *d),
-              1.0f / d->u(), x);
-#endif
   }
-#if defined DEPTH_TRI_VERBOSE && DEPTH_TRI_VERBOSE == 1
-  UT::Print(" --> %f  z = %f  s = %f", f * ComputeError(N, zs, *d), 1.0f / d->u(), sqrtf(d->s2()));
-  if (!d->Valid()) {
-    UT::Print("  FAIL");
-  }
-  UT::Print("\n");
-#endif
   d->s2() = DEPTH_VARIANCE_EPSILON + d->s2() * w;
   if (eAvg) {
     *eAvg = ComputeError(N, zs, *d);

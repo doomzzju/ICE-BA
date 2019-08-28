@@ -59,14 +59,6 @@ class Solver {
    */
   bool PushRelativeConstraint(const RelativeConstraint &Z);
 
-#ifdef CFG_GROUND_TRUTH
-  void PushIMUMeasurementsGT(const CurrentFrame &CF);
-  void EstimateMotionGT(std::vector<CameraIMUState> *XsGT);
-  void PushDepthMeasurementsGT(const CurrentFrame &CF, const KeyFrame *KF = NULL,
-                               const bool keyframeOnly = false);
-  void TriangulateDepthsGT(std::vector<Depth> *dsGT);
-#endif
-
   /*
    * @brief Set callback function that will be triggered after LBA/GBA finishes
    */
@@ -98,11 +90,7 @@ class Solver {
   bool LoadFeatures(const std::string fileName, const int iFrm,
                     std::vector<MapPointMeasurement> *zs,
                     std::vector<MapPoint> *Xs = NULL,
-                    const std::vector<int> *iFrms = NULL
-#ifdef CFG_STEREO
-                  , const ubyte right = 0
-#endif
-                  );
+                    const std::vector<int> *iFrms = NULL);
   void SaveB(FILE *fp);
   void LoadB(FILE *fp);
 

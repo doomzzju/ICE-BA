@@ -107,12 +107,7 @@ class AlignedVector4f {
     }
   }
   inline void Load(FILE *fp) {
-#ifdef CFG_DEBUG
-    const int N = fscanf(fp, "%f %f %f %f", &v0(), &v1(), &v2(), &v3());
-    UT_ASSERT(N == 4);
-#else
     fscanf(fp, "%f %f %f %f", &v0(), &v1(), &v2(), &v3());
-#endif
   }
 
   inline void Random(const float vMax) { UT::Random(&v0(), 4, -vMax, vMax); }
@@ -168,39 +163,4 @@ class AlignedVector4f {
 };
 }
 
-#ifdef CFG_DEBUG_EIGEN
-#include <Eigen/Eigen>
-class EigenVector4f : public Eigen::Vector4f {
- public:
-  inline EigenVector4f() : Eigen::Vector4f() {}
-  inline EigenVector4f(const Eigen::Vector4f &e_v) : Eigen::Vector4f(e_v) {}
-  inline EigenVector4f(const LA::AlignedVector4f &v) : Eigen::Vector4f(v.v0(), v.v1(), v.v2(),
-                                                                         v.v3()) {}
-  inline EigenVector4f(const float v0, const float v1, const float v2,
-                       const float v3) : Eigen::Vector4f(v0, v1, v2, v3) {}
-  inline void operator = (const Eigen::Vector4f &e_v) { *((Eigen::Vector4f *) this) = e_v; }
-  inline LA::AlignedVector4f GetAlignedVector4f() const {
-    LA::AlignedVector4f v;
-    const Eigen::Vector4f &e_v = *this;
-    v.v0() = e_v(0);
-    v.v1() = e_v(1);
-    v.v2() = e_v(2);
-    v.v3() = e_v(3);
-    return v;
-  }
-  inline float SquaredLength() const { return GetAlignedVector4f().SquaredLength(); }
-  inline void Print(const bool e = false) const { GetAlignedVector4f().Print(e); }
-  static inline EigenVector4f GetRandom(const float vMax) { return EigenVector4f(LA::AlignedVector4f::GetRandom(vMax)); }
-  inline bool AssertEqual(const LA::AlignedVector4f &v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetAlignedVector4f().AssertEqual(v, verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertEqual(const EigenVector4f &e_v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return AssertEqual(e_v.GetAlignedVector4f(), verbose, str, epsAbs, epsRel);
-  }
-};
-#endif
 #endif

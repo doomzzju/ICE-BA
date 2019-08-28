@@ -44,14 +44,14 @@ float FTR_UNDIST_DL_GAIN_RATIO_MAX              = 0.75f;
 float IMU_GRAVITY_MAGNITUDE                   = 9.81f;
  bool IMU_GRAVITY_EXCLUDED                    = false;
 //bool IMU_GRAVITY_EXCLUDED                   = true;
-float IMU_VARIANCE_ACCELERATION_NOISE         = 1.0e-4f;            // 0.01^2
-float IMU_VARIANCE_ACCELERATION_BIAS_WALK     = 1.0e-6f;            // 0.001^2
+float IMU_VARIANCE_ACCELERATION_NOISE         = 1.0e-6f;            // 0.01^2
+float IMU_VARIANCE_ACCELERATION_BIAS_WALK     = 1.0e-7f;            // 0.001^2
 float IMU_VARIANCE_GYROSCOPE_NOISE            = 3.046174198662e-8f; // (0.01*pi/180)^2
 float IMU_VARIANCE_GYROSCOPE_BIAS_WALK        = 3.046174198662e-8f; // (0.01*pi/180)^2
 float IMU_VARIANCE_EPSILON_ROTATION           = 3.046174198662e-8f; // (0.01*pi/180)^2
 float IMU_VARIANCE_EPSILON_VELOCITY           = 1.0e-6f;            // 0.001^2
 float IMU_VARIANCE_EPSILON_POSITION           = 1.0e-6f;            // 0.001^2
-float IMU_VARIANCE_EPSILON_BIAS_ACCELERATION  = 1.0e-6f;            // 0.001^2
+float IMU_VARIANCE_EPSILON_BIAS_ACCELERATION  = 1.0e-7f;            // 0.001^2
 float IMU_VARIANCE_EPSILON_BIAS_GYROSCOPE     = 3.046174198662e-8f; // (0.01*pi/180)^2
 float IMU_WEIGHT_ROTATION                     = 1.0f;
 float IMU_WEIGHT_VELOCITY                     = 1.0f;
@@ -297,9 +297,6 @@ void LoadParameters(const Configurator &cfgor) {
     cfgor.GetArgument(
     "param_feature_undistort_loop_up_table_size",
     FTR_UNDIST_LUT_SIZE);
-#ifdef CFG_DEBUG
-  UT_ASSERT(FTR_UNDIST_LUT_SIZE % 2 == 1);
-#endif
   FTR_UNDIST_DL_MAX_ITERATIONS =
     cfgor.GetArgument(
     "param_feature_undistort_dog_leg_max_iterations",
@@ -495,9 +492,6 @@ void LoadParameters(const Configurator &cfgor) {
   if (DEPTH_MIN == 0.0f) {
     DEPTH_MIN = -FLT_MAX;
   }
-#ifdef CFG_DEBUG
-  UT_ASSERT(DEPTH_VARIANCE_CONVERGE > FLT_EPSILON);
-#endif
 
   BA_MAX_ITERATIONS =
     cfgor.GetArgument(
@@ -867,16 +861,6 @@ void LoadParameters(const Configurator &cfgor) {
     cfgor.GetArgumentRadian(
     "param_ba_angle_epsilon",
     BA_ANGLE_EPSILON);
-#ifdef CFG_DEBUG
-  UT_ASSERT(BA_UPDATE_ROTATION          >= BA_BACK_SUBSTITUTE_ROTATION);
-  UT_ASSERT(BA_UPDATE_POSITION          >= BA_BACK_SUBSTITUTE_POSITION);
-  UT_ASSERT(BA_UPDATE_ROTATION          <= BA_CONVERGE_ROTATION);
-  UT_ASSERT(BA_UPDATE_POSITION          <= BA_CONVERGE_POSITION);
-  UT_ASSERT(BA_UPDATE_VELOCITY          <= BA_CONVERGE_VELOCITY);
-  UT_ASSERT(BA_UPDATE_BIAS_ACCELERATION <= BA_CONVERGE_BIAS_ACCELERATION);
-  UT_ASSERT(BA_UPDATE_BIAS_GYROSCOPE    <= BA_CONVERGE_BIAS_GYROSCOPE);
-  UT_ASSERT(BA_UPDATE_DEPTH             <= BA_CONVERGE_DEPTH);
-#endif
 
   LBA_MAX_SLIDING_TRACK_LENGTH =
     cfgor.GetArgument(
@@ -898,9 +882,6 @@ void LoadParameters(const Configurator &cfgor) {
     cfgor.GetArgument(
     "param_lba_pcg_conditioner_band",
     LBA_PCG_CONDITIONER_BAND);
-#ifdef CFG_DEBUG
-  UT_ASSERT(LBA_MAX_SLIDING_TRACK_LENGTH >= 2 && LBA_MAX_SLIDING_TRACK_LENGTH <= LBA_MAX_LOCAL_FRAMES);
-#endif
   LBA_EMBEDDED_MOTION_ITERATION =
     cfgor.GetArgument(
     "param_lba_embedded_motion_iteration",

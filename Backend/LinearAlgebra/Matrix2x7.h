@@ -126,43 +126,4 @@ class AlignedMatrix2x7f {
 };
 }
 
-#ifdef CFG_DEBUG_EIGEN
-class EigenMatrix2x7f : public Eigen::Matrix<float, 2, 7> {
- public:
-  inline EigenMatrix2x7f() : Eigen::Matrix<float, 2, 7>() {}
-  inline EigenMatrix2x7f(const Eigen::Matrix<float, 2, 7> &e_M) : Eigen::Matrix<float, 2, 7>(e_M) {}
-  inline EigenMatrix2x7f(const LA::AlignedMatrix2x7f &M) : Eigen::Matrix<float, 2, 7>() {
-    const float* _M[2] = {&M.m00(), &M.m10()};
-    Eigen::Matrix<float, 2, 7> &e_M = *this;
-    for (int i = 0; i < 2; ++i)
-      for (int j = 0; j < 7; ++j)
-        e_M(i, j) = _M[i][j];
-  }
-  inline EigenMatrix2x7f(const EigenMatrix2x6f &M0, const EigenVector2f &M1) {
-    block<2, 6>(0, 0) = M0;
-    block<2, 1>(0, 6) = M1;
-  }
-  inline void operator = (const Eigen::Matrix<float, 2, 7> &e_M) { *((Eigen::Matrix<float, 2, 7> *) this) = e_M; }
-  inline LA::AlignedMatrix2x7f GetAlignedMatrix2x7f() const {
-    LA::AlignedMatrix2x7f M;
-    float* _M[2] = {&M.m00(), &M.m10()};
-    const Eigen::Matrix<float, 2, 7> &e_M = *this;
-    for (int i = 0; i < 2; ++i)
-      for (int j = 0; j < 7; ++j)
-        _M[i][j] = e_M(i, j);
-    return M;
-  }
-  inline void Print(const bool e = false) const { GetAlignedMatrix2x7f().Print(e); }
-  inline bool AssertEqual(const LA::AlignedMatrix2x7f &M,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetAlignedMatrix2x7f().AssertEqual(M, verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertEqual(const EigenMatrix2x7f &e_M,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return AssertEqual(e_M.GetAlignedMatrix2x7f(), verbose, str, epsAbs, epsRel);
-  }
-};
-#endif
 #endif

@@ -308,17 +308,11 @@ template<typename TYPE> class Vector9 {
   inline Vector3<TYPE> Get678() const { Vector3<TYPE> v; Get678(v); return v; }
 
   inline void Increase(const int i, const AlignedVector3f &v) {
-#ifdef CFG_DEBUG
-    UT_ASSERT(i >= 0 && i <= 6);
-#endif
     m_data[i] += v.v0();
     m_data[i + 1] += v.v1();
     m_data[i + 2] += v.v2();
   }
   inline void Decrease(const int i, const AlignedVector3f &v) {
-#ifdef CFG_DEBUG
-    UT_ASSERT(i >= 0 && i <= 6);
-#endif
     m_data[i] -= v.v0();
     m_data[i + 1] -= v.v1();
     m_data[i + 2] -= v.v2();
@@ -483,68 +477,4 @@ template<> inline void Vector9d::Get678(float *v) const {
 
 }  // namespace LA
 
-#ifdef CFG_DEBUG_EIGEN
-#include <Eigen/Eigen>
-class EigenVector9f : public Eigen::Matrix<float, 9, 1> {
- public:
-  inline EigenVector9f() : Eigen::Matrix<float, 9, 1>() {}
-  inline EigenVector9f(const Eigen::Matrix<float, 9, 1> &e_v) : Eigen::Matrix<float, 9, 1>(e_v) {}
-  inline EigenVector9f(const float *v) : Eigen::Matrix<float, 9, 1>() { *this = v; }
-  inline EigenVector9f(const LA::AlignedVector3f &v0, const LA::AlignedVector3f &v1,
-                       const LA::AlignedVector3f &v2) {
-    block<3, 1>(0, 0) = EigenVector3f(v0);
-    block<3, 1>(3, 0) = EigenVector3f(v1);
-    block<3, 1>(6, 0) = EigenVector3f(v2);
-  }
-  inline void operator = (const Eigen::Matrix<float, 9, 1> &e_v) {
-    *((Eigen::Matrix<float, 9, 1> *) this) = e_v;
-  }
-  inline void operator = (const float *v) {
-    Eigen::Matrix<float, 9, 1> &e_v = *this;
-    for (int i = 0; i < 9; ++i) {
-      e_v(i, 0) = v[i];
-    }
-  }
-  inline LA::AlignedVector9f GetAlignedVector9f() const {
-    LA::AlignedVector9f v;
-    float* _v = v;
-    const Eigen::Matrix<float, 9, 1> &e_v = *this;
-    for (int i = 0; i < 9; ++i) {
-      _v[i] = e_v(i, 0);
-    }
-    return v;
-  }
-  inline LA::Vector9f GetVector9f() const {
-    LA::Vector9f v;
-    float* _v = v;
-    const Eigen::Matrix<float, 9, 1> &e_v = *this;
-    for (int i = 0; i < 9; ++i) {
-      _v[i] = e_v(i, 0);
-    }
-    return v;
-  }
-  inline float SquaredLength() const { return GetAlignedVector9f().SquaredLength(); }
-  inline void Print(const bool e = false) const { GetAlignedVector9f().Print(e); }
-  static inline EigenVector9f GetRandom(const float vMax) { return EigenVector9f(LA::AlignedVector9f::GetRandom(vMax)); }
-  inline bool AssertEqual(const LA::AlignedVector9f &v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetAlignedVector9f().AssertEqual(v, verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertEqual(const LA::Vector9f &v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetVector9f().AssertEqual(v, verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertEqual(const EigenVector9f &e_v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return AssertEqual(e_v.GetAlignedVector9f(), verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertZero(const int verbose = 1, const std::string str = "",
-                         const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetAlignedVector9f().AssertZero(verbose, str, epsAbs, epsRel);
-  }
-};
-#endif
 #endif

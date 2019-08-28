@@ -148,41 +148,4 @@ class AlignedMatrix3x4f {
 };
 }
 
-#ifdef CFG_DEBUG_EIGEN
-class EigenMatrix3x4f : public Eigen::Matrix<float, 3, 4> {
- public:
-  inline EigenMatrix3x4f() : Eigen::Matrix<float, 3, 4>() {}
-  inline EigenMatrix3x4f(const Eigen::Matrix<float, 3, 4> &e_M) : Eigen::Matrix<float, 3, 4>(e_M) {}
-  inline EigenMatrix3x4f(const LA::AlignedMatrix3x4f &M) : Eigen::Matrix<float, 3, 4>() {
-    Eigen::Matrix<float, 3, 4> &e_M = *this;
-    e_M(0, 0) = M.m00();  e_M(0, 1) = M.m01();  e_M(0, 2) = M.m02();  e_M(0, 3) = M.m03();
-    e_M(1, 0) = M.m10();  e_M(1, 1) = M.m11();  e_M(0, 2) = M.m02();  e_M(0, 3) = M.m03();
-    e_M(2, 0) = M.m20();  e_M(2, 1) = M.m21();  e_M(2, 2) = M.m22();  e_M(2, 3) = M.m23();
-  }
-  inline EigenMatrix3x4f(const EigenMatrix3x3f &e_M0, const EigenVector3f &e_M1) {
-    block<3, 3>(0, 0) = e_M0;
-    block<3, 1>(0, 3) = e_M1;
-  }
-  inline void operator = (const Eigen::Matrix<float, 3, 4> &e_M) { *((Eigen::Matrix<float, 3, 4> *) this) = e_M; }
-  inline LA::AlignedMatrix3x4f GetAlignedMatrix3x4f() const {
-    LA::AlignedMatrix3x4f M;
-    const Eigen::Matrix<float, 3, 4> &e_M = *this;
-    M.m00() = e_M(0, 0);  M.m01() = e_M(0, 1);  M.m02() = e_M(0, 2);  M.m03() = e_M(0, 3);
-    M.m10() = e_M(1, 0);  M.m11() = e_M(1, 1);  M.m12() = e_M(1, 2);  M.m13() = e_M(1, 3);
-    M.m20() = e_M(2, 0);  M.m21() = e_M(2, 1);  M.m22() = e_M(2, 2);  M.m23() = e_M(2, 3);
-    return M;
-  }
-  inline void Print(const bool e = false) const { GetAlignedMatrix3x4f().Print(e); }
-  inline bool AssertEqual(const LA::AlignedMatrix3x4f &M,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetAlignedMatrix3x4f().AssertEqual(M, verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertEqual(const EigenMatrix3x4f &e_M,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return AssertEqual(e_M.GetAlignedMatrix3x4f(), verbose, str, epsAbs, epsRel);
-  }
-};
-#endif
 #endif

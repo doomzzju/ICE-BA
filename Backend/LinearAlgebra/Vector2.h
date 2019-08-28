@@ -172,39 +172,4 @@ template<> inline void Vector2d::Get(float *v) const {
 
 }
 
-#ifdef CFG_DEBUG_EIGEN
-#include <Eigen/Eigen>
-class EigenVector2f : public Eigen::Vector2f {
- public:
-  inline EigenVector2f() : Eigen::Vector2f() {}
-  inline EigenVector2f(const Eigen::Vector2f &e_v) : Eigen::Vector2f(e_v) {}
-  inline EigenVector2f(const LA::Vector2f &v) : Eigen::Vector2f(v.v0(), v.v1()) {}
-  inline EigenVector2f(const float v0, const float v1) : Eigen::Vector2f(v0, v1) {}
-  inline EigenVector2f(const float *v) : Eigen::Vector2f(v[0], v[1]) {}
-  inline void operator = (const Eigen::Vector2f &e_v) { *((Eigen::Vector2f *) this) = e_v; }
-  inline LA::Vector2f GetVector2f() const {
-    LA::Vector2f v;
-    const Eigen::Vector2f &e_v = *this;
-    v.v0() = e_v(0);
-    v.v1() = e_v(1);
-    return v;
-  }
-  inline float SquaredLength() const { return GetVector2f().SquaredLength(); }
-  inline void Print(const bool e = false) const { GetVector2f().Print(e); }
-  inline bool AssertEqual(const LA::Vector2f &v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetVector2f().AssertEqual(v, verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertEqual(const EigenVector2f &e_v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return AssertEqual(e_v.GetVector2f(), verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertZero(const int verbose = 1, const std::string str = "",
-                         const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetVector2f().AssertZero(verbose, str, epsAbs, epsRel);
-  }
-};
-#endif
 #endif

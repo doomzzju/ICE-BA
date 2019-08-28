@@ -155,42 +155,4 @@ class AlignedVector8f {
 };
 }
 
-#ifdef CFG_DEBUG_EIGEN
-#include <Eigen/Eigen>
-class EigenVector8f : public Eigen::Matrix<float, 8, 1> {
- public:
-  inline EigenVector8f() : Eigen::Matrix<float, 8, 1>() {}
-  inline EigenVector8f(const Eigen::Matrix<float, 8, 1> &e_v) : Eigen::Matrix<float, 8, 1>(e_v) {}
-  inline EigenVector8f(const LA::AlignedVector8f &v) : Eigen::Matrix<float, 8, 1>() {
-    const float* _v = v;
-    Eigen::Matrix<float, 8, 1> &e_v = *this;
-    for (int i = 0; i < 8; ++i)
-      e_v(i, 0) = _v[i];
-  }
-  inline void operator = (const Eigen::Matrix<float, 8, 1> &e_v) { *((Eigen::Matrix<float, 8, 1> *) this) = e_v; }
-  inline LA::AlignedVector8f GetAlignedVector8f() const {
-    LA::AlignedVector8f v;
-    float* _v = v;
-    const Eigen::Matrix<float, 8, 1> &e_v = *this;
-    for (int i = 0; i < 8; ++i)
-      _v[i] = e_v(i, 0);
-    return v;
-  }
-  inline float SquaredLength() const { return GetAlignedVector8f().SquaredLength(); }
-  inline void Print(const bool e = false) const { GetAlignedVector8f().Print(e); }
-  static inline EigenVector8f GetRandom(const float vMax) {
-    return EigenVector8f(LA::AlignedVector8f::GetRandom(vMax));
-  }
-  inline bool AssertEqual(const LA::AlignedVector8f &v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetAlignedVector8f().AssertEqual(v, verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertEqual(const EigenVector8f &e_v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return AssertEqual(e_v.GetAlignedVector8f(), verbose, str, epsAbs, epsRel);
-  }
-};
-#endif
 #endif

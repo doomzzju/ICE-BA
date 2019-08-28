@@ -21,11 +21,9 @@
 namespace CameraPrior {
 
 namespace Element{
-#ifdef CFG_CAMERA_PRIOR_DOUBLE
+
 typedef double T;
-#else
-typedef float T;
-#endif
+
 class R : public LA::Vector2f {
  public:
   inline R() {}
@@ -372,11 +370,9 @@ inline void AddAbTo(const CC &A, const C &b, C &Ab) {
 }  // namespace Element
 
 namespace Vector {
-#ifdef CFG_CAMERA_PRIOR_DOUBLE
+
 typedef LA::AlignedVectorXd X;
-#else
-typedef LA::AlignedVectorXf X;
-#endif
+
 class C : public AlignedVector<Element::C> {
  public:
   inline C() {}
@@ -385,9 +381,6 @@ class C : public AlignedVector<Element::C> {
            AlignedVector<Element::C>(data, N, own) {}
   inline void operator += (const C &V) {
     const int N = Size();
-#ifdef CFG_DEBUG
-    UT_ASSERT(V.Size() == N);
-#endif
     for (int i = 0; i < N; ++i) {
       m_data[i] += V[i];
     }
@@ -468,9 +461,6 @@ template<class BLOCK_A, class BLOCK_B, class BLOCK_ABT>
 inline void ABT(const AlignedMatrixX<BLOCK_A> &A, const BLOCK_B &B,
                 AlignedVector<BLOCK_ABT> &ABT) {
   const int N = A.GetRows();
-#ifdef CFG_DEBUG
-  UT_ASSERT(A.GetColumns() == 1);
-#endif
   ABT.Resize(N);
   for (int i = 0; i < N; ++i) {
     Element::ABT(A[i][0], B, ABT[i]);
@@ -480,9 +470,6 @@ template<class BLOCK_A, class BLOCK_B, class BLOCK_ABT>
 inline void AddABTTo(const AlignedVector<BLOCK_A> &A, const BLOCK_B &B,
                      AlignedVector<BLOCK_ABT> &ABT) {
   const int N = A.Size();
-#ifdef CFG_DEBUG
-  UT_ASSERT(ABT.Size() == N);
-#endif
   for (int i = 0; i < N; ++i) {
     Element::AddABTTo(A[i], B, ABT[i]);
   }
@@ -491,9 +478,6 @@ template<class BLOCK_A, class BLOCK_B, class BLOCK_ABT>
 inline void AddABTTo(const AlignedVector<BLOCK_A> &A, const BLOCK_B &B,
                      AlignedMatrixX<BLOCK_ABT> &ABT) {
   const int N = A.Size();
-#ifdef CFG_DEBUG
-  UT_ASSERT(ABT.GetRows() == N && ABT.GetColumns() == 1);
-#endif
   for (int i = 0; i < N; ++i) {
     Element::AddABTTo(A[i], B, ABT[i][0]);
   }
@@ -502,9 +486,6 @@ template<class BLOCK_A, class BLOCK_B, class BLOCK_ABT>
 inline void AddABTTo(const BLOCK_A &A, const AlignedVector<BLOCK_B> &B,
                      AlignedVector<BLOCK_ABT> &ABT) {
   const int N = B.Size();
-#ifdef CFG_DEBUG
-  UT_ASSERT(ABT.Size() == N);
-#endif
   for (int i = 0; i < N; ++i) {
     Element::AddABTTo(A, B[i], ABT[i]);
   }
@@ -513,9 +494,6 @@ template<class BLOCK_A, class BLOCK_B, class BLOCK_ABT>
 inline void AddABTTo(const BLOCK_A &A, const AlignedMatrixX<BLOCK_B> &B,
                      AlignedVector<BLOCK_ABT> &ABT) {
   const int N = B.GetRows();
-#ifdef CFG_DEBUG
-  UT_ASSERT(B.GetColumns() == 1 && ABT.Size() == N);
-#endif
   for (int i = 0; i < N; ++i) {
     Element::AddABTTo(A, B[i][0], ABT[i]);
   }
@@ -524,141 +502,16 @@ template<class BLOCK_A, class BLOCK_B, class BLOCK_ABT>
 inline void AddAbTo(const AlignedVector<BLOCK_A> &A, const BLOCK_B &b,
                     AlignedVector<BLOCK_ABT> &Ab) {
   const int N = A.Size();
-#ifdef CFG_DEBUG
-  UT_ASSERT(Ab.Size() == N);
-#endif
   for (int i = 0; i < N; ++i) {
     Element::AddAbTo(A[i], b, Ab[i]);
   }
 }
-
-#ifdef CFG_DEBUG_EIGEN
-inline EigenVectorXf EigenConvert(const C &b) {
-  EigenVectorXf e_b;
-  const int N = b.Size();
-  e_b.Resize(N * 6);
-  e_b.MakeZero();
-  for (int i = 0, j = 0; i < N; ++i, j += 6) {
-    if (b[i].Valid()) {
-      e_b.block<6, 1>(j, 0) = EigenVector6f(b[i]);
-    }
-  }
-  return e_b;
-}
-inline void EigenConvert(const EigenVectorXf &e_b, C &b) {
-  const int Nx6 = e_b.Size(), N = Nx6 / 6;
-#ifdef CFG_DEBUG
-  UT_ASSERT(Nx6 % 6 == 0);
-#endif
-  b.Resize(N);
-  for (int i = 0, j = 0; i < N; ++i, j += 6) {
-    b[i] = EigenVector6f(e_b.block<6, 1>(j, 0)).GetAlignedVector6f();
-  }
-}
-inline EigenMatrixXf EigenConvert(const RC &V) {
-  const int N = V.Size();
-  EigenMatrixXf e_V;
-  e_V.Resize(2, N * 6);
-  e_V.MakeZero();
-  for (int i = 0, j = 0; i < N; ++i, j += 6) {
-    if (V[i].Valid()) {
-      e_V.block<2, 6>(0, j) = EigenMatrix2x6f(V[i]);
-    }
-  }
-  return e_V;
-}
-inline void EigenConvert(const EigenMatrixXf &e_V, RC &V) {
-  const int Nx6 = e_V.GetColumns(), N = Nx6 / 6;
-#ifdef CFG_DEBUG
-  UT_ASSERT(Nx6 % 6 == 0 && e_V.GetRows() == 2);
-#endif
-  V.Resize(N);
-  for (int i = 0, j = 0; i < N; ++i, j += 6) {
-    V[i] = EigenMatrix2x6f(e_V.block<2, 6>(0, j)).GetAlignedMatrix2x6f();
-  }
-}
-inline EigenMatrixXf EigenConvert(const CM &V) {
-  const int N = V.Size();
-  EigenMatrixXf e_V;
-  e_V.Resize(N * 6, 9);
-  e_V.MakeZero();
-  for (int i = 0, j = 0; i < N; ++i, j += 6) {
-    if (V[i].Valid()) {
-      e_V.block<6, 9>(j, 0) = EigenMatrix6x9f(V[i]);
-    }
-  }
-  return e_V;
-}
-inline void EigenConvert(const EigenMatrixXf &e_V, CM &V) {
-  const int Nx6 = e_V.GetRows(), N = Nx6 / 6;
-#ifdef CFG_DEBUG
-  UT_ASSERT(Nx6 % 6 == 0 && e_V.GetColumns() == 9);
-#endif
-  V.Resize(N);
-  for (int i = 0, j = 0; i < N; ++i, j += 6) {
-    V[i] = EigenMatrix6x9f(e_V.block<6, 9>(j, 0)).GetAlignedMatrixMxNf();
-  }
-}
-inline bool EigenAssertEqual(const EigenVectorXf &e_b, const C &b,
-                             const int verbose = 1, const std::string str = "") {
-  const int Nx6 = e_b.Size(), N = b.Size();
-  UT_ASSERT(N == 0 || Nx6 == N * 6);
-  bool scc = true;
-  for (int i = 0, j = 0; j < Nx6; ++i, j += 6) {
-    const EigenVector6f e_b1 = EigenVector6f(e_b.block<6, 1>(j, 0));
-    const std::string _str = str + UT::String("[%d]", i);
-    if (N != 0 && b[i].Valid()) {
-      const EigenVector6f e_b2 = EigenVector6f(b[i]);
-      scc = e_b1.AssertEqual(e_b2, verbose, _str) && scc;
-    } else {
-      scc = e_b1.AssertZero(verbose, _str) && scc;
-    }
-  }
-  return scc;
-}
-inline bool EigenAssertEqual(const EigenMatrixXf &e_V, const RC &V,
-                             const int verbose = 1, const std::string str = "") {
-  const int Nx6 = e_V.GetColumns(), N = V.Size();
-  UT_ASSERT(e_V.GetRows() == 2 && (N == 0 || Nx6 == N * 6));
-  bool scc = true;
-  for (int i = 0, j = 0; j < Nx6; ++i, j += 6) {
-    const EigenMatrix2x6f e_A1 = EigenMatrix2x6f(e_V.block<2, 6>(0, j));
-    const std::string _str = str + UT::String("[%d]", i);
-    if (N != 0 && V[i].Valid()) {
-      const EigenMatrix2x6f e_A2 = EigenMatrix2x6f(V[i]);
-      scc = e_A1.AssertEqual(e_A2, verbose, _str) && scc;
-    } else {
-      scc = e_A1.AssertZero(verbose, _str) && scc;
-    }
-  }
-  return scc;
-}
-inline bool EigenAssertEqual(const EigenMatrixXf &e_V, const CM &V,
-                             const int verbose = 1, const std::string str = "") {
-  const int Nx6 = e_V.GetRows(), N = V.Size();
-  UT_ASSERT((N == 0 || Nx6 == N * 6) && e_V.GetColumns() == 9);
-  bool scc = true;
-  for (int i = 0, j = 0; j < Nx6; ++i, j += 6) {
-    const EigenMatrix6x9f e_A1 = EigenMatrix6x9f(e_V.block<6, 9>(j, 0));
-    const std::string _str = str + UT::String("[%d]", i);
-    if (N != 0 && V[i].Valid()) {
-      const EigenMatrix6x9f e_A2 = EigenMatrix6x9f(V[i]);
-      scc = e_A1.AssertEqual(e_A2, verbose, _str) && scc;
-    } else {
-      scc = e_A1.AssertZero(verbose, _str) && scc;
-    }
-  }
-  return scc;
-}
-#endif
 }  // namespace Vector
 
 namespace Matrix {
-#ifdef CFG_CAMERA_PRIOR_DOUBLE
+
 typedef LA::AlignedMatrixXd X;
-#else
-typedef LA::AlignedMatrixXf X;
-#endif
+
 class CC : public AlignedMatrixX<Element::CC> {
  public:
   inline CC() {}
@@ -666,18 +519,12 @@ class CC : public AlignedMatrixX<Element::CC> {
   inline void MakeIdentity() {
     MakeZero();
     const int N = GetRows();
-#ifdef CFG_DEBUG
-    UT_ASSERT(GetColumns() == N);
-#endif
     for (int i = 0; i < N; ++i) {
       m_rows[i][i].MakeIdentity();
     }
   }
   inline void SetLowerFromUpper() {
     const int N = GetRows();
-#ifdef CFG_DEBUG
-    UT_ASSERT(GetColumns() == N);
-#endif
     if (m_symmetric) {
       for (int i = 0; i < N; ++i) {
         m_rows[i][i].SetLowerFromUpper();
@@ -693,9 +540,6 @@ class CC : public AlignedMatrixX<Element::CC> {
   }
   inline void AssertSymmetric() const {
     const int N = GetRows();
-#ifdef CFG_DEBUG
-    UT_ASSERT(GetColumns() == N);
-#endif
     if (m_symmetric) {
       for (int i = 0; i < N; ++i) {
         m_rows[i][i].AssertSymmetric();
@@ -714,9 +558,6 @@ template<class BLOCK_A, class BLOCK_B, class BLOCK_ABT>
 inline void AddABTTo(const AlignedVector<BLOCK_A> &A, const AlignedVector<BLOCK_B> &B,
                      AlignedMatrixX<BLOCK_ABT> &ABT) {
   const int M = A.Size(), N = B.Size();
-#ifdef CFG_DEBUG
-  UT_ASSERT(ABT.GetRows() == M && ABT.GetColumns() == N);
-#endif
   for (int i = 0; i < M; ++i) {
     const BLOCK_A &Ai = A[i];
     BLOCK_ABT *ABTi = ABT[i];
@@ -729,9 +570,6 @@ template<class BLOCK_A, class BLOCK_B, class BLOCK_ABT>
 inline void AddABTToUpper(const AlignedVector<BLOCK_A> &A, const AlignedVector<BLOCK_B> &B,
                           AlignedMatrixX<BLOCK_ABT> &ABT) {
   const int N = A.Size();
-#ifdef CFG_DEBUG
-  UT_ASSERT(B.Size() == N && ABT.GetRows() == N && ABT.GetColumns() == N);
-#endif
   for (int i = 0; i < N; ++i) {
     const BLOCK_A &Ai = A[i];
     BLOCK_ABT *ABTi = ABT[i];
@@ -745,10 +583,6 @@ template<class BLOCK_A, class BLOCK_B, class BLOCK_ABT>
 inline void AddABTToUpper(const AlignedVector<BLOCK_A> &A, const AlignedMatrixX<BLOCK_B> &B,
                           AlignedMatrixX<BLOCK_ABT> &ABT) {
   const int N = A.Size();
-#ifdef CFG_DEBUG
-  UT_ASSERT(B.GetRows() == N && B.GetColumns() == 1);
-  UT_ASSERT(ABT.GetRows() == N && ABT.GetColumns() == N);
-#endif
   for (int i = 0; i < N; ++i) {
     const BLOCK_A &Ai = A[i];
     BLOCK_ABT *ABTi = ABT[i];
@@ -759,93 +593,6 @@ inline void AddABTToUpper(const AlignedVector<BLOCK_A> &A, const AlignedMatrixX<
   }
 }
 
-#ifdef CFG_DEBUG_EIGEN
-inline EigenMatrixXf EigenConvert(const CC &A) {
-  EigenMatrixXf e_A;
-  const int N = A.GetRows(), Nx6 = N * 6;
-#ifdef CFG_DEBUG
-  UT_ASSERT(A.GetColumns() == N);
-#endif
-  e_A.Resize(Nx6, Nx6);
-  e_A.MakeZero();
-  if (A.Symmetric()) {
-    for (int i1 = 0, j1 = 0; i1 < N; ++i1, j1 += 6) {
-      for (int i2 = i1, j2 = j1; i2 < N; ++i2, j2 += 6) {
-        if (A[i1][i2].Invalid()) {
-          continue;
-        }
-        e_A.block<6, 6>(j1, j2) = EigenMatrix6x6f(A[i1][i2]);
-        if (i2 != i1) {
-          e_A.block<6, 6>(j2, j1) = e_A.block<6, 6>(j1, j2).transpose();
-        }
-      }
-    }
-  } else {
-    for (int i1 = 0, j1 = 0; i1 < N; ++i1, j1 += 6) {
-      for (int i2 = 0, j2 = 0; i2 < N; ++i2, j2 += 6) {
-        if (A[i1][i2].Valid()) {
-          e_A.block<6, 6>(j1, j2) = EigenMatrix6x6f(A[i1][i2]);
-        }
-      }
-    }
-  }
-  return e_A;
-}
-inline void EigenConvert(const EigenMatrixXf &e_A, CC &A, const bool symmetric = true) {
-  const int Nrx6 = e_A.GetRows(), Nr = Nrx6 / 6;
-  const int Ncx6 = e_A.GetColumns(), Nc = Ncx6 / 6;
-#ifdef CFG_DEBUG
-  UT_ASSERT(Nrx6 % 6 == 0 && Ncx6 % 6 == 0);
-#endif
-  A.Resize(Nr, Nc, symmetric);
-  for (int i1 = 0, j1 = 0; i1 < Nr; ++i1, j1 += 6) {
-    for (int i2 = symmetric ? i1 : 0, j2 = symmetric ? j1 : 0; i2 < Nc; ++i2, j2 += 6) {
-      A[i1][i2] = EigenMatrix6x6f(e_A.block<6, 6>(j1, j2)).GetAlignedMatrix6x6f();
-    }
-  }
-}
-inline bool EigenAssertEqual(const EigenMatrixXf &e_A, const CC &A,
-                             const int verbose = 1, const std::string str = "") {
-  const int Nx6 = e_A.GetRows(), N = A.GetRows();
-  UT_ASSERT(N == 0 || Nx6 == N * 6);
-  UT_ASSERT(e_A.GetColumns() == Nx6 && A.GetColumns() == N);
-  bool scc = true;
-  if (A.Symmetric()) {
-    A.AssertSymmetric();
-    for (int i1 = 0, j1 = 0; j1 < Nx6; ++i1, j1 += 6) {
-      for (int i2 = i1, j2 = j1; j2 < Nx6; ++i2, j2 += 6) {
-        const EigenMatrix6x6f e_A1 = EigenMatrix6x6f(e_A.block<6, 6>(j1, j2));
-        const std::string _str = str + UT::String("[%d][%d]", i1, i2);
-        if (N != 0 && A[i1][i2].Valid()) {
-          const EigenMatrix6x6f e_A2 = EigenMatrix6x6f(A[i1][i2]);
-          scc = e_A1.AssertEqual(e_A2, verbose, _str) && scc;
-        } else {
-          scc = e_A1.AssertZero(verbose, _str) && scc;
-        }
-        if (i2 == i1) {
-          continue;
-        }
-        const EigenMatrix6x6f e_A3 = EigenMatrix6x6f(e_A.block<6, 6>(j2, j1).transpose());
-        scc = e_A1.AssertEqual(e_A3, verbose, str + UT::String("[%d][%d]", i2, i1)) && scc;
-      }
-    }
-  } else {
-    for (int i1 = 0, j1 = 0; j1 < Nx6; ++i1, j1 += 6) {
-      for (int i2 = 0, j2 = 0; j2 < Nx6; ++i2, j2 += 6) {
-        const EigenMatrix6x6f e_A1 = EigenMatrix6x6f(e_A.block<6, 6>(j1, j2));
-        const std::string _str = str + UT::String("[%d][%d]", i1, i2);
-        if (N != 0 && A[i1][i2].Valid()) {
-          const EigenMatrix6x6f e_A2 = EigenMatrix6x6f(A[i1][i2]);
-          scc = e_A1.AssertEqual(e_A2, verbose, _str) && scc;
-        } else {
-          scc = e_A1.AssertZero(verbose, _str) && scc;
-        }
-      }
-    }
-  }
-  return scc;
-}
-#endif
 }  // namespace Matrix
 
 class Pose {
@@ -927,12 +674,6 @@ class Pose {
         m_g = g;
         Je.m_J.m_Jc.GetTranspose(m_JcT);
         const int N = m_JcT.Size(), _N = N + 1;
-#ifdef CFG_DEBUG
-        if (m_g) {
-          UT_ASSERT(Arc.Size() == N);
-        }
-        UT_ASSERT(Acc.GetRows() == N && Acc.GetColumns() == N);
-#endif
         m_JTAc0.Resize(N);
         m_Aec.Resize(N);
         if (m_g) {
@@ -1011,9 +752,6 @@ class Pose {
       inline void Get(const LA::AlignedMatrix2x3f &Jr, const xp128f &w, const Element::R &br,
                       const Vector::C &bc, Matrix::CC *A, Vector::C *b) const {
         const int N = m_JcT.Size(), _N = N + 1;
-#ifdef CFG_DEBUG
-        UT_ASSERT(bc.Size() == N);
-#endif
         A->Resize(_N, _N, true);
         b->Resize(_N);
         Matrix::CC &_A = *A;
@@ -1312,15 +1050,6 @@ class Pose {
     m_bc.MakeZero();
     return true;
   }
-
-#ifdef CFG_DEBUG
-  inline void DebugSetMeasurement(const Rigid3D &Tr, const bool newKF, const Rigid3D *T0 = NULL) {
-    Tr.Rotation3D::GetTranspose(m_Zps.Back());
-    if (!newKF && T0) {
-      Rigid3D::ABI(Tr, *T0, m_Zps[0]);
-    }
-  }
-#endif
   
   inline void Insert(const float w, const int i, const int iKF, const Rigid3D &T, const float s2p,
                      const float s2r, AlignedVector<float> *work) {
@@ -1370,9 +1099,6 @@ class Pose {
     m_bc.Erase(j);
   }
   inline void SetPose(const Rigid3D &Tr, const int i, const Rigid3D &Ti) {
-#ifdef CFG_DEBUG
-    UT_ASSERT(i < static_cast<int>(m_iKFs.size()));
-#endif
     Rigid3D::ABI(Tr, Ti, m_Zps[i]);
   }
 //  inline void GetReferencePose(const Rigid3D &Tr, Rigid3D *_Tr, Rigid3D *TrI) const {
@@ -1390,9 +1116,6 @@ class Pose {
 //    TrI->GetInverse(*_Tr);
 //  }
   inline void GetReferencePose(const Rigid3D &Tr, Rigid3D *_Tr, Rigid3D *TrI) const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(m_Zps.Size() == static_cast<int>(m_iKFs.size()) + 1);
-#endif
     *TrI = m_Zps.Back();
     const Point3D pr = Tr.GetPosition();
     TrI->SetTranslation(pr);
@@ -1407,16 +1130,10 @@ class Pose {
 //  }
 
   inline Rotation3D GetReferenceRotationState(const Rotation3D &R) const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(m_Zps.Size() == static_cast<int>(m_iKFs.size()) + 1);
-#endif
     return R.GetTranspose();
   }
   inline Rotation3D GetReferenceRotationMeasurement(const float *x/* = NULL*/,
                                                     const float eps) const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(m_Zps.Size() == static_cast<int>(m_iKFs.size()) + 1);
-#endif
     if (x) {
       Rotation3D dR;
       const LA::Vector2f _x(x);
@@ -1500,9 +1217,6 @@ class Pose {
     if (m_Zps.Size() == N) {
       e->m_er.Invalidate();
     } else {
-#ifdef CFG_DEBUG
-      UT_ASSERT(m_Zps.Size() == N + 1);
-#endif
       Rotation3D::AB(m_Zps.Back(), C1, eR);
       eR.GetRodriguesXY(e->m_er, eps);
     }
@@ -1513,16 +1227,7 @@ class Pose {
       const int iKF = m_iKFs[i];
       const Rigid3D &C2 = iKF == INT_MAX ? Cs.Back() : Cs[iKF];
       Element::EC &ec = e->m_ec[i];
-#if 0
-      Rotation3D::ABT(C1, C2, R21);
-      C2.GetTranslation(t2);
-      R21.Apply(t2, ec.m_ep);
-      LA::AlignedVector3f::amb(t1, ec.m_ep, ec.m_ep);
-      T21.GetTranslation(p12);
-      ec.m_ep -= p12;
-      Rotation3D::ABT(T21, R21, eR);
-      eR.GetRodrigues(ec.m_er);
-#else
+
       C2.GetPosition(p2);
       C1.ApplyRotation(p2, ec.m_ep);
       ec.m_ep += t1;
@@ -1531,7 +1236,6 @@ class Pose {
       Rotation3D::AB(T21, C2, Rt);
       Rotation3D::ABT(Rt, C1, eR);
       eR.GetRodrigues(ec.m_er, eps);
-#endif
     }
   }
   inline void GetError(const ErrorJacobian &Je, const std::vector<const LA::AlignedVector3f *> &xps,
@@ -1643,9 +1347,6 @@ class Pose {
       F += e.m_er.Dot(br);
     }
     const xp128f _s = xp128f::get(s);
-#ifdef CFG_DEBUG
-    UT_ASSERT(m_bc.Size() == N && Aec.Size() == N);
-#endif
     Element::C bc;
     LA::AlignedVector6f ec;
     for (int i = 0; i < N; ++i) {
@@ -1662,9 +1363,6 @@ class Pose {
     float F = 0.0f;
     //const float s = 0.5f;
     const int N = e.Size();
-#ifdef CFG_DEBUG
-    UT_ASSERT(m_bc.Size() == N);
-#endif
     //const bool g = !m_Arc.Empty();
     const bool g = m_Zps.Size() != N;
     Element::R Sbr;
@@ -1867,252 +1565,6 @@ class Pose {
   Element::R m_br;
   Vector::C m_bc;
   float m_xTb;
-
-#ifdef CFG_DEBUG_EIGEN
- public:
-  class EigenErrorJacobian {
-   public:
-    inline void Set(const Error &e) {
-      const int N = e.Size();
-      m_e.Resize(2 + N * 6);
-      m_e.block<2, 1>(0, 0) = EigenVector2f(e.m_er);
-      for (int i = 0, j = 2; i < N; ++i, j += 6) {
-        const Element::EC &ec = e.m_ec[i];
-        m_e.block<6, 1>(j, 0) = EigenVector6f(ec.m_ep, ec.m_er);
-      }
-    }
-    inline void Set(const Jacobian &J) {
-      const int N = J.Size(), Nx6 = N * 6;
-      m_J.Resize(2 + Nx6, 6 + Nx6);
-      m_J.setZero();
-      m_J.block<2, 3>(0, 3) = EigenMatrix2x3f(J.m_Jr);
-
-      EigenMatrix6x6f e_Jc1, e_Jc2;
-      e_Jc1.setZero();
-      e_Jc2.setZero();
-      for (int i = 0, j = 2, k = 6; i < N; ++i, j += 6, k += 6) {
-        const Element::JC &Jc = J.m_Jc[i];
-        e_Jc1.block<3, 3>(0, 0) = EigenMatrix3x3f(Jc.m_Jpp1);
-        e_Jc1.block<3, 3>(0, 3) = EigenMatrix3x3f(Jc.m_Jpr1);
-        e_Jc1.block<3, 3>(3, 3) = EigenMatrix3x3f(Jc.m_Jrr1);
-        e_Jc2.block<3, 3>(0, 0) = EigenMatrix3x3f(Jc.m_Jpp2);
-        e_Jc2.block<3, 3>(3, 3) = EigenMatrix3x3f(Jc.m_Jrr2);
-        m_J.block<6, 6>(j, 0) = e_Jc1;
-        m_J.block<6, 6>(j, k) = e_Jc2;
-      }
-    }
-    inline void Set(const ErrorJacobian &J) { Set(J.m_e); Set(J.m_J); }
-    inline bool AssertEqual(const Error &e, const int verbose = 1,
-                            const std::string str = "") const {
-      const int N = e.Size();
-      UT_ASSERT(m_e.Size() == 2 + N * 6);
-      bool scc = true;
-      if (e.m_er.Valid()) {
-        const EigenVector2f e_er(m_e.block<2, 1>(0, 0));
-        scc = e_er.AssertEqual(e.m_er, verbose, str + ".m_er") && scc;
-      }
-      for (int i = 0, j = 2; i < N; ++i, j += 6) {
-        const Element::EC &ec = e.m_ec[i];
-        const EigenVector6f e_ec1 = EigenVector6f(m_e.block<6, 1>(j, 0));
-        const EigenVector6f e_ec2 = EigenVector6f(ec.m_ep, ec.m_er);
-        scc = e_ec1.AssertEqual(e_ec2, verbose, UT::String(".m_ec[%d]", i)) && scc;
-      }
-      return scc;
-    }
-    inline bool AssertEqual(const Jacobian &J, const int verbose = 1,
-                            const std::string str = "") const {
-      const int N = J.Size(), Nx6 = N * 6;
-      UT_ASSERT(m_J.GetRows() == 2 + Nx6 && m_J.GetColumns() == 6 + Nx6);
-      bool scc = true;
-      if (J.m_Jr.Valid()) {
-        const EigenMatrix2x3f e_Jr(m_J.block<2, 3>(0, 3));
-        scc = e_Jr.AssertEqual(J.m_Jr, verbose, str + ".m_Jr") && scc;
-      }
-      scc = EigenMatrixXf(m_J.block(0, 0, 2, 3)).AssertZero(verbose, str + ".Zero[r]",
-                                                            -1.0f, -1.0f) && scc;
-      scc = EigenMatrixXf(m_J.block(0, 6, 2, Nx6)).AssertZero(verbose, str + ".Zero[r]",
-                                                              -1.0f, -1.0f) && scc;
-
-      EigenMatrix6x12f e_Jc1, e_Jc2;
-      e_Jc2.setZero();
-      for (int i = 0, j = 2, k = 6; i < N; ++i, j += 6, k += 6) {
-        const Element::JC &Jc = J.m_Jc[i];
-        e_Jc1.block<6, 6>(0, 0) = m_J.block<6, 6>(j, 0);
-        e_Jc1.block<6, 6>(0, 6) = m_J.block<6, 6>(j, k);
-        e_Jc2.block<3, 3>(0, 0) = EigenMatrix3x3f(Jc.m_Jpp1);
-        e_Jc2.block<3, 3>(0, 3) = EigenMatrix3x3f(Jc.m_Jpr1);
-        e_Jc2.block<3, 3>(0, 6) = EigenMatrix3x3f(Jc.m_Jpp2);
-        e_Jc2.block<3, 3>(3, 3) = EigenMatrix3x3f(Jc.m_Jrr1);
-        e_Jc2.block<3, 3>(3, 9) = EigenMatrix3x3f(Jc.m_Jrr2);
-        scc = e_Jc1.AssertEqual(e_Jc2, verbose, str + UT::String(".m_Jc[%d]", i)) && scc;
-        const std::string _str = str + UT::String(".Zero[%d]", i);
-        scc = EigenMatrixXf(m_J.block(j, 6, 6, k - 6)).AssertZero(verbose, _str,
-                                                                  -1.0f, -1.0f) && scc;
-        scc = EigenMatrixXf(m_J.block(j, k + 6, 6, Nx6 - k)).AssertZero(verbose, _str,
-                                                                        -1.0f, -1.0f) && scc;
-      }
-      return scc;
-    }
-    inline bool AssertEqual(const ErrorJacobian &Je, const int verbose = 1,
-                            const std::string str = "") const {
-      bool scc = true;
-      scc = AssertEqual(Je.m_e, verbose, str) && scc;
-      scc = AssertEqual(Je.m_J, verbose, str) && scc;
-      return scc;
-    }
-   public:
-    EigenVectorXf m_e;
-    EigenMatrixXf m_J;
-  };
-  class EigenFactor {
-   public:
-    inline void Set(const Factor &A) {
-      m_A = EigenConvert(A.m_A);
-      m_b = EigenConvert(A.m_b);
-      m_F = A.m_F;
-    }
-    inline bool AssertEqual(const Factor &A, const int verbose = 1,
-                            const std::string str = "") const {
-      bool scc = true;
-      scc = EigenAssertEqual(m_A, A.m_A, verbose, str + ".m_A") && scc;
-      scc = EigenAssertEqual(m_b, A.m_b, verbose, str + ".m_b") && scc;
-      scc = UT::AssertEqual(m_F, A.m_F, verbose, str + ".m_F") && scc;
-      return scc;
-    }
-   public:
-    EigenMatrixXf m_A;
-    EigenVectorXf m_b;
-    float m_F;
-  };
-  class EigenPrior {
-   public:
-    inline EigenPrior() {}
-    inline EigenPrior(const EigenMatrixXf &e_A, const EigenVectorXf &e_b) : m_A(e_A), m_b(e_b) {}
-    inline EigenPrior(const Element::RR &Arr, const Vector::RC &Arc, const Matrix::CC &Acc,
-                      const Element::R &br, const Vector::C &bc, const float w = 1.0f,
-                      const bool pad = false) {
-      Set(Arr, Arc, Acc, br, bc, w, pad);
-    }
-    inline void Set(const Pose &Z, const bool pad = false) {
-      Set(Z.m_Arr, Z.m_Arc, Z.m_Acc, Z.m_br, Z.m_bc, 1.0f, pad);
-    }
-    inline void Set(const Element::RR &Arr, const Vector::RC &Arc, const Matrix::CC &Acc,
-                    const Element::R &br, const Vector::C &bc, const float w = 1.0f,
-                    const bool pad = false) {
-      const int N = bc.Size();
-#ifdef CFG_DEBUG
-      UT_ASSERT(Acc.GetRows() == N && Acc.GetColumns() == N);
-      if (!Arc.Empty()) {
-        UT_ASSERT(Arc.Size() == N);
-      }
-#endif
-      const int Nx6 = N == 0 && pad ? 6 : N * 6;
-      m_A.Resize(2 + Nx6, 2 + Nx6);
-      m_A.MakeZero();
-      m_b.Resize(2 + Nx6);
-      m_b.MakeZero();
-      if (Arr.Valid()) {
-        m_A.block<2, 2>(0, 0) = EigenMatrix2x2f(Arr);
-      }
-      if (!Arc.Empty()) {
-        const EigenMatrixXf e_Arc = EigenConvert(Arc);
-        m_A.block(0, 2, 2, Nx6) = e_Arc;
-        m_A.block(2, 0, Nx6, 2) = e_Arc.transpose();
-      }
-      if (N != 0) {
-        m_A.block(2, 2, Nx6, Nx6) = EigenConvert(Acc);
-        m_b.block(2, 0, Nx6, 1) = EigenConvert(bc);
-      }
-      if (br.Valid()) {
-        m_b.block<2, 1>(0, 0) = EigenVector2f(br);
-      }
-      if (w != 1.0f) {
-        m_A *= w;
-        m_b *= w;
-      }
-    }
-    inline void Get(Element::RR &Arr, Vector::RC &Arc, Matrix::CC &Acc,
-                    Element::R &br, Vector::C &bc) const {
-      const int Nrc = m_b.Size(), Nx6 = Nrc - 2, N = Nx6 / 6;
-#ifdef CFG_DEBUG
-      UT_ASSERT(Nx6 % 6 == 0);
-      UT_ASSERT(m_A.GetRows() == Nrc && m_A.GetColumns() == Nrc);
-#endif
-      Arr = EigenMatrix2x2f(m_A.block<2, 2>(0, 0)).GetSymmetricMatrix2x2f();
-      EigenConvert(EigenMatrixXf(m_A.block(0, 2, 2, Nx6)), Arc);
-      EigenConvert(EigenMatrixXf(m_A.block(2, 2, Nx6, Nx6)), Acc);
-      br = EigenVector2f(m_b.block<2, 1>(0, 0)).GetVector2f();
-      EigenConvert(EigenVectorXf(m_b.block(2, 0, Nx6, 1)), bc);
-    }
-    inline void Marginalize(const int ipc) {
-      EigenMatrixX<Element::T> e_Ab;
-      e_Ab.Set(EigenMatrixX<Element::T>(m_A.cast<Element::T>()),
-               EigenVectorX<Element::T>(m_b.cast<Element::T>()));
-#ifdef CFG_CAMERA_PRIOR_REORDER
-      e_Ab.Marginalize(ipc + 3, 1);
-      e_Ab.Marginalize(ipc + 3, 1);
-      e_Ab.Marginalize(ipc + 3, 1);
-      e_Ab.Marginalize(ipc, 1);
-      e_Ab.Marginalize(ipc, 1);
-      e_Ab.Marginalize(ipc, 1);
-#else
-      e_Ab.Marginalize(ipc, 6);
-#endif
-      EigenMatrixXf(e_Ab.cast<float>()).Get(m_A, m_b);
-    }
-    inline bool AssertEqual(const Pose &Z, const int verbose = 1,
-                            const std::string str = "") const {
-      return AssertEqual(Z.m_Arr, Z.m_Arc, Z.m_Acc, Z.m_br, Z.m_bc, verbose, str);
-    }
-    inline bool AssertEqual(const Element::RR &Arr, const Vector::RC &Arc, const Matrix::CC &Acc,
-                            const Element::R &br, const Vector::C &bc, const int verbose = 1,
-                            const std::string str = "") const {
-      const int Nx6 = m_A.GetRows() - 2, N = bc.Size();
-#ifdef CFG_DEBUG
-      UT_ASSERT(m_A.GetColumns() == Nx6 + 2 && m_b.Size() == Nx6 + 2);
-      UT_ASSERT(Acc.GetRows() == N && Acc.GetColumns() == N);
-      if (!Arc.Empty()) {
-        UT_ASSERT(Arc.Size() == N);
-      }
-      UT_ASSERT(N == 0 || Nx6 == N * 6);
-#endif
-      bool scc = true;
-      const EigenMatrix2x2f e_Arr(m_A.block<2, 2>(0, 0));
-      if (Arr.Valid()) {
-        scc = e_Arr.AssertEqual(Arr, verbose, str + ".Arr") && scc;
-      } else {
-        scc = e_Arr.AssertZero(verbose, str + ".Arr") && scc;
-      }
-      const EigenMatrixXf e_Arc(m_A.block(0, 2, 2, Nx6));
-      scc = EigenAssertEqual(e_Arc, Arc, verbose, str + ".Arc") && scc;
-      const EigenMatrixXf e_Acc(m_A.block(2, 2, Nx6, Nx6));
-      scc = EigenAssertEqual(e_Acc, Acc, verbose, str + ".Acc") && scc;
-      const EigenVector2f e_br(m_b.block<2, 1>(0, 0));
-      if (br.Valid()) {
-        scc = e_br.AssertEqual(br, verbose, str + ".br") && scc;
-      } else {
-        scc = e_br.AssertZero(verbose, str + ".br") && scc;
-      }
-      const EigenVectorXf e_bc(m_b.block(2, 0, Nx6, 1));
-      scc = EigenAssertEqual(e_bc, bc, verbose, str + ".bc") && scc;
-      return scc;
-    }
-   public:
-    EigenMatrixXf m_A;
-    EigenVectorXf m_b;
-  };
- public:
-  EigenErrorJacobian EigenGetErrorJacobian(const AlignedVector<Rigid3D> &Cs,
-                                           const float eps) const;
-  EigenFactor EigenGetFactor(const float w, const AlignedVector<Rigid3D> &Cs,
-                             const float eps) const;
-  float EigenGetCost(const float w, const AlignedVector<Rigid3D> &Cs,
-                     const std::vector<EigenVector6f> &e_xs, const float eps) const;
-  void EigenGetResidual(const AlignedVector<Rigid3D> &Cs, EigenVectorXf *e_r,
-                        const float eps) const;
-  void EigenGetPriorMeasurement(const float w, EigenMatrixXf *e_S,
-                                EigenVectorXf *e_x = NULL) const;
-#endif
 };
 
 class Motion {
@@ -2164,47 +1616,7 @@ class Motion {
     class MM : public Camera::Factor::Unitary::MM {};
     class Auxiliary {
      public:
-#ifdef CFG_CAMERA_PRIOR_SQUARE_FORM
-      inline void Set(const ErrorJacobian &Je, const xp128f &w, const Element::MM &A) {
-        Je.m_J.GetTranspose(&m_JT);
-        Je.m_e.Get(&m_e);
-        
-        A.GetScaled(w, m_wA);
-        LA::AlignedMatrix3x3f _A;
-        m_wA.GetBlock(0, 0, _A);
-        LA::AlignedMatrix3x3f::ABT(m_JT.m_Jvr, _A, m_JTArv);
-        LA::AlignedMatrix3x3f::ABT(m_JT.m_Jvv, _A, m_JTAvv);
-        m_wA.GetBlock(0, 3, _A);
-        _A.Transpose();
-        LA::AlignedMatrix3x3f::ABT(m_JT.m_Jvr, _A, m_JTArba);
-        LA::AlignedMatrix3x3f::ABT(m_JT.m_Jvv, _A, m_JTAvba);
-        m_wA.GetBlock(0, 6, _A);
-        _A.Transpose();
-        LA::AlignedMatrix3x3f::ABT(m_JT.m_Jvr, _A, m_JTArbw);
-        LA::AlignedMatrix3x3f::ABT(m_JT.m_Jvv, _A, m_JTAvbw);
-      }
-      inline void Get(const Error &e, LA::SymmetricMatrix3x3f *Arr, LA::AlignedMatrix3x9f *Arm,
-                      LA::SymmetricMatrix9x9f *Amm, LA::Vector3f *br, LA::Vector9f *bm) const {
-        LA::SymmetricMatrix3x3f::ABT(m_JTArv, m_JT.m_Jvr, *Arr);
-        LA::AlignedMatrix3x9f &_Arm = *Arm;
-        LA::AlignedMatrix3x3f::ABT(m_JTArv, m_JT.m_Jvv, _Arm[0], _Arm[1], _Arm[2]);
-        float *_br = &br->v0();
-        LA::AlignedMatrix3x3f::Ab(m_JTArv, e.m_ev, _br);
-        Arm->SetBlock(0, 3, m_JTArba);
-        LA::AlignedMatrix3x3f::AddAbTo(m_JTArba, e.m_eba, _br);
-        Arm->SetBlock(0, 6, m_JTArbw);
-        LA::AlignedMatrix3x3f::AddAbTo(m_JTArbw, e.m_ebw, _br);
-        LA::SymmetricMatrix9x9f::ABTTo00(m_JTAvv, m_JT.m_Jvv, *Amm);
-        float *_bm = &bm->v0();
-        LA::AlignedMatrix3x3f::Ab(m_JTAvv, e.m_ev, _bm);
-        Amm->Set03(m_JTAvba);
-        LA::AlignedMatrix3x3f::AddAbTo(m_JTAvba, e.m_eba, _bm);
-        Amm->Set06(m_JTAvbw);
-        LA::AlignedMatrix3x3f::AddAbTo(m_JTAvbw, e.m_ebw, _bm);
-        Amm->Set33(m_wA[3] + 3, m_wA[4] + 3, m_wA[5] + 3, m_wA[6] + 3, m_wA[7] + 3, m_wA[8] + 3);
-        LA::AlignedMatrix9x9f::Ab(m_wA, m_e, _bm, 3);
-      }
-#else
+
       inline void Set(const ErrorJacobian &Je, const xp128f &w, const Element::MM &A) {
         Je.m_J.GetTranspose(&m_JT);
         
@@ -2257,17 +1669,12 @@ class Motion {
         LA::AlignedMatrix3x3f::Ab(m_JT.m_Jvv, Aepbv, &bm->v0());
         memcpy(&bm->v3(), &Aepb.v3(), 24);
       }
-#endif
      public:
       Jacobian m_JT;
       Element::MM m_wA;
       LA::AlignedMatrix3x3f m_JTArv, m_JTArba, m_JTArbw;
       LA::AlignedMatrix3x3f m_JTAvv, m_JTAvba, m_JTAvbw;
-#ifdef CFG_CAMERA_PRIOR_SQUARE_FORM
-      Element::M m_e;
-#else
       Element::M m_Ae;
-#endif
     };
    public:
     inline void MakeZero() { memset(this, 0, sizeof(Factor)); }
@@ -2348,25 +1755,9 @@ class Motion {
     m_Amm[3][3] = m_Amm[4][4] = m_Amm[5][5] = UT::Inverse(s2ba, w);
     m_Amm[6][6] = m_Amm[7][7] = m_Amm[8][8] = UT::Inverse(s2bw, w);
     m_bm.MakeZero();
-#ifdef CFG_CAMERA_PRIOR_SQUARE_FORM
-    m_em.MakeZero();
-#else
     m_xTb = 0.0f;
-#endif
   }
   inline void Initialize(const Motion &Zp) { *((Motion *) this) = Zp; }
-
-#ifdef CFG_DEBUG
-  inline void DebugSetMeasurement(const Camera &C) {
-    SetMotion(C.m_T, C.m_v, C.m_ba, C.m_bw);
-    m_bm.MakeZero();
-#ifdef CFG_CAMERA_PRIOR_SQUARE_FORM
-    m_em.MakeZero();
-#else
-    m_xTb = 0.0f;
-#endif
-  }
-#endif
 
   inline bool Valid() const { return m_v.Valid(); }
   inline bool Invalid() const { return m_v.Invalid(); }
@@ -2431,16 +1822,10 @@ class Motion {
     LA::AlignedVector3f::amb(v, m_v, e->m_ev);
     LA::AlignedVector3f::amb(C.m_ba, m_ba, e->m_eba);
     LA::AlignedVector3f::amb(C.m_bw, m_bw, e->m_ebw);
-#ifdef CFG_CAMERA_PRIOR_SQUARE_FORM
-    *e += m_em;
-#endif
   }
   inline void GetError(const ErrorJacobian &Je, const LA::AlignedVector3f *xr,
                        const LA::AlignedVector3f *xv, const LA::AlignedVector3f *xba,
                        const LA::AlignedVector3f *xbw, Error *e) const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(xr || xv || xba || xbw);
-#endif
     *e = Je.m_e;
     if (xr) {
       LA::AlignedMatrix3x3f::AddAbTo(Je.m_J.m_Jvr, *xr, (float *) &e->m_ev);
@@ -2464,22 +1849,11 @@ class Motion {
     GetErrorJacobian(C, &A->m_Je);
     const xp128f _w = xp128f::get(w);
     U->Set(A->m_Je, _w, m_Amm);
-#ifdef CFG_CAMERA_PRIOR_SQUARE_FORM
-    U->Get(A->m_Je.m_e, &A->m_Arr.m_A, &A->m_Arm, &A->m_Amm.m_A, &A->m_Arr.m_b, &A->m_Amm.m_b);
-    A->m_F = GetCost(w, A->m_Je.m_e);
-#else
+
     A->m_F = GetCost(w, A->m_Je.m_e, U->m_Ae);
     U->Get(_w, m_bm, &A->m_Arr.m_A, &A->m_Arm, &A->m_Amm.m_A, &A->m_Arr.m_b, &A->m_Amm.m_b);
-#endif
   }
-#ifdef CFG_CAMERA_PRIOR_SQUARE_FORM
-  inline float GetCost(const float w, const Error &e) const {
-    Element::M _e, v;
-    _e.Set(e.m_ev, e.m_eba, e.m_ebw);
-    LA::AlignedMatrix9x9f::Ab(m_Amm, _e, (float *) &v);
-    return w * _e.Dot(v);
-  }
-#else
+
   inline float GetCost(const float w, const Error &e, const Element::M &Ae) const {
     Element::M _e, b;
     e.Get(&_e);
@@ -2488,6 +1862,7 @@ class Motion {
     //return 0.5f * _e.Dot(b);
     return _e.Dot(b);
   }
+
   inline float GetCost(const float w, const Error &e) const {
     Element::M _e, v;
     e.Get(&_e);
@@ -2497,7 +1872,7 @@ class Motion {
     v += m_bm;
     return w * _e.Dot(v);
   }
-#endif
+
   inline float GetCost(const float w, const ErrorJacobian &Je, const LA::AlignedVector3f *xr,
                        const LA::AlignedVector3f *xv, const LA::AlignedVector3f *xba,
                        const LA::AlignedVector3f *xbw, Error *e) const {
@@ -2525,9 +1900,6 @@ class Motion {
   inline void Print(const bool e = false) const {
     m_Amm.Print("Amm = ", e);
     m_bm.Print("bm = ", e);
-#ifdef CFG_CAMERA_PRIOR_SQUARE_FORM
-    //m_em.Print("em = ", e);
-#endif
   }
   inline void PrintDiagonal(const bool e = false) const {
     m_Amm.PrintDiagonal("Amm = ", e);
@@ -2538,11 +1910,7 @@ class Motion {
     UT::SaveB(m_bw, fp);
     UT::SaveB(m_Amm, fp);
     UT::SaveB(m_bm, fp);
-#ifdef CFG_CAMERA_PRIOR_SQUARE_FORM
-    UT::SaveB(m_em, fp);
-#else
     UT::SaveB(m_xTb, fp);
-#endif
   }
   inline void LoadB(FILE *fp) {
     UT::LoadB(m_v, fp);
@@ -2550,11 +1918,7 @@ class Motion {
     UT::LoadB(m_bw, fp);
     UT::LoadB(m_Amm, fp);
     UT::LoadB(m_bm, fp);
-#ifdef CFG_CAMERA_PRIOR_SQUARE_FORM
-    UT::LoadB(m_em, fp);
-#else
     UT::LoadB(m_xTb, fp);
-#endif
   }
 
   bool GetPriorMeasurement(const float w, LA::AlignedMatrixXf *S, LA::AlignedVectorXf *x,
@@ -2565,132 +1929,7 @@ class Motion {
   LA::AlignedVector3f m_v, m_ba, m_bw;
   Element::MM m_Amm;
   Element::M m_bm;
-#ifdef CFG_CAMERA_PRIOR_SQUARE_FORM
-  Error m_em;
-#else
   float m_xTb;
-#endif
-
-#ifdef CFG_DEBUG_EIGEN
- public:
-  class EigenErrorJacobian {
-   public:
-    inline void Set(const Error &e) {
-      m_e.block<3, 1>(0, 0) = EigenVector3f(e.m_ev);
-      m_e.block<3, 1>(3, 0) = EigenVector3f(e.m_eba);
-      m_e.block<3, 1>(6, 0) = EigenVector3f(e.m_ebw);
-    }
-    inline void Set(const Jacobian &J) {
-      m_J.setZero();
-      m_J.block<3, 3>(0, 0) = EigenMatrix3x3f(J.m_Jvr);
-      m_J.block<3, 3>(0, 3) = EigenMatrix3x3f(J.m_Jvv);
-      m_J.block<3, 3>(3, 6) = EigenMatrix3x3f::Identity();
-      m_J.block<3, 3>(6, 9) = EigenMatrix3x3f::Identity();
-    }
-    inline void Set(const ErrorJacobian &Je) { Set(Je.m_e); Set(Je.m_J); }
-    inline bool AssertEqual(const Error &e, const int verbose = 1,
-                            const std::string str = "") const {
-      const EigenVector3f e_ev(m_e.block<3, 1>(0, 0));
-      const EigenVector3f e_eba(m_e.block<3, 1>(3, 0));
-      const EigenVector3f e_ebw(m_e.block<3, 1>(6, 0));
-      bool scc = true;
-      scc = e_ev.AssertEqual(e.m_ev, verbose, str + ".m_ev") && scc;
-      scc = e_eba.AssertEqual(e.m_eba, verbose, str + ".m_eba") && scc;
-      scc = e_ebw.AssertEqual(e.m_ebw, verbose, str + ".m_ebw") && scc;
-      return scc;
-    }
-    inline bool AssertEqual(const Jacobian &J, const int verbose = 1,
-                            const std::string str = "") const {
-      const EigenMatrix3x3f e_Jvr(m_J.block<3, 3>(0, 0));
-      const EigenMatrix3x3f e_Jvv(m_J.block<3, 3>(0, 3));
-      bool scc = true;
-      scc = e_Jvr.AssertEqual(J.m_Jvr, verbose, str + ".m_Jvr") && scc;
-      scc = e_Jvv.AssertEqual(J.m_Jvv, verbose, str + ".m_Jvv") && scc;
-      return scc;
-    }
-    inline bool AssertEqual(const ErrorJacobian &Je, const int verbose = 1,
-                            const std::string str = "") const {
-      bool scc = true;
-      scc = AssertEqual(Je.m_e, verbose, str) && scc;
-      scc = AssertEqual(Je.m_J, verbose, str) && scc;
-      return scc;
-    }
-   public:
-    EigenMatrix9x12f m_J;
-    EigenVector9f m_e;
-  };
-  class EigenFactor {
-   public:
-    inline void Set(const Factor &A) {
-      m_A.block<3, 3>(0, 0) = EigenMatrix3x3f(A.m_Arr.m_A);
-      const EigenMatrix3x9f e_Arm(A.m_Arm);
-      m_A.block<3, 9>(0, 3) = e_Arm;
-      m_A.block<9, 3>(3, 0) = e_Arm.transpose();
-      m_A.block<9, 9>(3, 3) = EigenMatrix9x9f(A.m_Amm.m_A);
-      m_b.block<3, 1>(0, 0) = EigenVector3f(A.m_Arr.m_b);
-      m_b.block<9, 1>(3, 0) = EigenVector9f(A.m_Amm.m_b);
-      m_F = A.m_F;
-    }
-    inline bool AssertEqual(const Factor &A, const int verbose = 1,
-                            const std::string str = "") const {
-      const EigenMatrix3x3f e_Arr(m_A.block<3, 3>(0, 0));
-      const EigenMatrix3x9f e_Arm(m_A.block<3, 9>(0, 3));
-      const EigenMatrix9x9f e_Amm(m_A.block<9, 9>(3, 3));
-      const EigenVector3f e_br(m_b.block<3, 1>(0, 0));
-      const EigenVector9f e_bm(m_b.block<9, 1>(3, 0));
-      bool scc = true;
-      scc = e_Arr.AssertEqual(A.m_Arr.m_A, verbose, str + ".m_Arr") && scc;
-      scc = e_Arm.AssertEqual(A.m_Arm, verbose, str + ".m_Arm") && scc;
-      scc = e_Amm.AssertEqual(A.m_Amm.m_A, verbose, str + ".m_Amm") && scc;
-      scc = e_br.AssertEqual(A.m_Arr.m_b, verbose, str + ".m_br") && scc;
-      scc = e_bm.AssertEqual(A.m_Amm.m_b, verbose, str + ".m_bm") && scc;
-      scc = UT::AssertEqual(m_F, A.m_F, 1, str + ".m_F") && scc;
-      return scc;
-    }
-   public:
-    EigenMatrix12x12f m_A;
-    EigenVector12f m_b;
-    float m_F;
-  };
-  class EigenPrior : public Pose::EigenPrior {
-   public:
-    inline void Initialize(const float w, const float s2v, const float s2ba, const float s2bw) {
-      m_A.Resize(9, 9);
-      m_A.MakeZero();
-      m_b.Resize(9);
-      m_b.MakeZero();
-      m_A(0, 0) = m_A(1, 1) = m_A(2, 2) = UT::Inverse(s2v, w);
-      m_A(3, 3) = m_A(4, 4) = m_A(5, 5) = UT::Inverse(s2ba, w);
-      m_A(6, 6) = m_A(7, 7) = m_A(8, 8) = UT::Inverse(s2bw, w);
-    }
-    inline void Set(const Motion &Z) {
-      m_A = EigenMatrix9x9f(Z.m_Amm);
-      m_b = EigenVector9f(Z.m_bm);
-    }
-    inline bool AssertEqual(const Motion &Z, const int verbose = 1,
-                            const std::string str = "") const {
-      UT_ASSERT(m_A.GetRows() == 9 && m_A.GetColumns() == 9 && m_b.Size() == 9);
-      bool scc = true;
-      const EigenMatrix9x9f e_Amm(m_A.block<9, 9>(0, 0));
-      scc = e_Amm.AssertEqual(Z.m_Amm, verbose, str + ".Amm") && scc;
-      const EigenVector9f e_bm(m_b.block<9, 1>(0, 0));
-      scc = e_bm.AssertEqual(Z.m_bm, verbose, str + ".bm") && scc;
-      //const EigenVector9f e_em = EigenVector9f(e_Amm.inverse() * e_bm);
-      //Element::M em;
-      //Z.m_em.Get(&em);
-      //scc = e_em.AssertEqual(em, verbose, str + "em") && scc;
-      return scc;
-    }
-  };
- public:
-  EigenErrorJacobian EigenGetErrorJacobian(const Camera &C) const;
-  EigenFactor EigenGetFactor(const float w, const Camera &C) const;
-  float EigenGetCost(const float w, const Camera &C, const EigenVector3f &e_xr,
-                     const EigenVector9f &e_xm) const;
-  void EigenGetResidual(const Camera &C, EigenVector9f *e_r) const;
-  void EigenGetPriorMeasurement(const float w, EigenMatrixXf *e_S,
-                                EigenVectorXf *e_x = NULL) const;
-#endif
 };
 
 class Joint : public Pose, public Motion {
@@ -2778,9 +2017,6 @@ class Joint : public Pose, public Motion {
       if (m_Zps.Size() == N) {
         er->Invalidate();
       } else {
-#ifdef CFG_DEBUG
-        UT_ASSERT(m_Zps.Size() == N + 1);
-#endif
         Rotation3D eR;
         Rotation3D::AB(m_Zps.Back(), Tr, eR);
         eR.GetRodriguesXY(*er, eps);
@@ -2788,9 +2024,6 @@ class Joint : public Pose, public Motion {
     }
     if (ec) {
       const int ik = N - 1;
-#ifdef CFG_DEBUG
-      UT_ASSERT(m_iKFs[ik] == INT_MAX);
-#endif
       Pose::GetError(Tr, C.m_T, ik, ec, eps);
     }
     if (em) {
@@ -2900,137 +2133,7 @@ class Joint : public Pose, public Motion {
   Element::RM m_Arm;
   Vector::CM m_Acm;
 
-#ifdef CFG_DEBUG_EIGEN
- public:
-  class EigenPrior : public Pose::EigenPrior {
-   public:
-    inline void Initialize(const float w, const float s2r, const Motion::EigenPrior &e_Ap,
-                           const float s2cp = 0.0f, const float s2cr = 0.0f) {
-      m_A.Resize(17, 17);
-      m_A.MakeZero();
-      m_b.Resize(17);
-      m_b.MakeZero();
-      m_A(0, 0) = m_A(1, 1) = UT::Inverse(s2r, w);
-      m_A(2, 2) = m_A(3, 3) = m_A(4, 4) = UT::Inverse(s2cp, w);
-      m_A(5, 5) = m_A(6, 6) = m_A(7, 7) = UT::Inverse(s2cr, w);
-#ifdef CFG_DEBUG
-      UT_ASSERT(e_Ap.m_A.GetRows() == 9 && e_Ap.m_A.GetColumns() == 9 && e_Ap.m_b.Size() == 9);
-#endif
-      m_A.block(8, 8, 9, 9) = e_Ap.m_A;
-      m_b.block(8, 0, 9, 1) = e_Ap.m_b;
-    }
-    inline void Set(const Joint &Z, const bool pad = false) {
-      Set(Z.m_Arr, Z.m_Arc, Z.m_Arm, Z.m_Acc, Z.m_Acm, Z.m_Amm, Z.m_br, Z.m_bc, Z.m_bm, pad);
-    }
-    inline void Set(const Element::RR &Arr, const Vector::RC &Arc, const Element::RM &Arm,
-                    const Matrix::CC &Acc, const Vector::CM &Acm, const Element::MM &Amm,
-                    const Element::R &br, const Vector::C &bc, const Element::M &bm,
-                    const bool pad = false) {
-      const Pose::EigenPrior e_Arc = Pose::EigenPrior(Arr, Arc, Acc, br, bc, 1.0f, pad);
-      const int Nx6 = bc.Size() * 6, Nrc = e_Arc.m_b.Size(), Nrcm = Nrc + 9;
-      m_A.Resize(Nrcm, Nrcm);
-      m_A.MakeZero();
-      m_A.block(0, 0, Nrc, Nrc) = e_Arc.m_A;
-      m_b.Resize(Nrcm);
-      m_b.block(0, 0, Nrc, 1) = e_Arc.m_b;
-      if (!Arc.Empty()) {
-        const EigenMatrix2x9f e_Arm = EigenMatrix2x9f(Arm);
-        m_A.block<2, 9>(0, Nrc) = e_Arm;
-        m_A.block<9, 2>(Nrc, 0) = e_Arm.transpose();
-      }
-      if (!Acm.Empty()) {
-        const EigenMatrixXf e_Acm = EigenConvert(Acm);
-        m_A.block(2, Nrc, Nx6, 9) = e_Acm;
-        m_A.block(Nrc, 2, 9, Nx6) = e_Acm.transpose();
-      }
-      m_A.block<9, 9>(Nrc, Nrc) = EigenMatrix9x9f(Amm);
-      m_b.block<9, 1>(Nrc, 0) = EigenVector9f(bm);
-    }
-    inline void Get(Joint &Z) const {
-      Get(Z.m_Arr, Z.m_Arc, Z.m_Arm, Z.m_Acc, Z.m_Acm, Z.m_Amm, Z.m_br, Z.m_bc, Z.m_bm);
-    }
-    inline void Get(Element::RR &Arr, Vector::RC &Arc, Element::RM &Arm,
-                    Matrix::CC &Acc, Vector::CM &Acm, Element::MM &Amm,
-                    Element::R &br, Vector::C &bc, Element::M &bm) const {
-      const int Nrcm = m_b.Size(), Nrc = Nrcm - 9, Nx6 = Nrc - 2, N = Nx6 / 6;
-#ifdef CFG_DEBUG
-      UT_ASSERT(Nx6 % 6 == 0);
-      UT_ASSERT(m_A.GetRows() == Nrcm && m_A.GetColumns() == Nrcm);
-#endif
-      const Pose::EigenPrior e_Arc(EigenMatrixXf(m_A.block(0, 0, Nrc, Nrc)),
-                                   EigenVectorXf(m_b.block(0, 0, Nrc, 1)));
-      e_Arc.Get(Arr, Arc, Acc, br, bc);
-      Arm = EigenMatrix2x9f(m_A.block<2, 9>(0, Nrc)).GetAlignedMatrixMxNf();
-      EigenConvert(EigenMatrixXf(m_A.block(2, Nrc, Nx6, 9)), Acm);
-      Amm = EigenMatrix9x9f(m_A.block<9, 9>(Nrc, Nrc)).GetAlignedMatrixMxNf();
-      bm = EigenVector9f(m_b.block<9, 1>(Nrc, 0)).GetAlignedVector9f();
-    }
-    inline void Insert(const float w, const int i, const float s2p, const float s2r) {
-      const int j = 2 + i * 6;
-      m_A.InsertZero(j, 6);
-      m_A(j, j) = m_A(j + 1, j + 1) = m_A(j + 2, j + 2) = UT::Inverse(s2p, w);
-      m_A(j + 3, j + 3) = m_A(j + 4, j + 4) = m_A(j + 5, j + 5) = UT::Inverse(s2r, w);
-      m_b.InsertZero(j, 6);
-    }
-    inline void Update(const int i, const EigenMatrix6x6f &e_A, const EigenVector6f &e_b) {
-      const int j = 2 + i * 6;
-      m_A.block<6, 6>(j, j) += e_A;
-      m_b.block<6, 1>(j, 0) += e_b;
-    }
-    inline void Update(const int i1, const int i2, const EigenMatrix6x6f &e_A11,
-                       const EigenMatrix6x6f &e_A12, const EigenMatrix6x6f &e_A22,
-                       const EigenVector6f &e_b1, const EigenVector6f &e_b2) {
-      const int j1 = 2 + i1 * 6, j2 = 2 + i2 * 6;
-      m_A.block<6, 6>(j1, j1) += e_A11;
-      m_A.block<6, 6>(j1, j2) += e_A12;
-      m_A.block<6, 6>(j2, j1) = m_A.block<6, 6>(j1, j2).transpose();
-      m_A.block<6, 6>(j2, j2) += e_A22;
-      m_b.block<6, 1>(j1, 0) += e_b1;
-      m_b.block<6, 1>(j2, 0) += e_b2;
-    }
-    inline bool AssertEqual(const Joint &Z, const int verbose = 1,
-                            const std::string str = "") const {
-      return AssertEqual(Z.m_Arr, Z.m_Arc, Z.m_Arm, Z.m_Acc, Z.m_Acm, Z.m_Amm,
-                         Z.m_br, Z.m_bc, Z.m_bm, verbose, str);
-    }
-    inline bool AssertEqual(const Element::RR &Arr, const Vector::RC &Arc, const Element::RM &Arm,
-                            const Matrix::CC &Acc, const Vector::CM &Acm, const Element::MM &Amm,
-                            const Element::R &br, const Vector::C &bc, const Element::M &bm,
-                            const int verbose = 1, const std::string str = "") const {
-      const int Nrcm = m_b.Size(), Nrc = Nrcm - 9, Nx6 = Nrc - 2;
-      bool scc = true;
-      const Pose::EigenPrior e_Arc(EigenMatrixXf(m_A.block(0, 0, Nrc, Nrc)),
-                                   EigenVectorXf(m_b.block(0, 0, Nrc, 1)));
-      scc = e_Arc.AssertEqual(Arr, Arc, Acc, br, bc, verbose, str) && scc;
-      const EigenMatrix2x9f e_Arm(m_A.block<2, 9>(0, Nrc));
-      if (Arm.Valid()) {
-        scc = e_Arm.AssertEqual(Arm, verbose, str + ".Arm") && scc;
-      } else {
-        scc = e_Arm.AssertZero() && scc;
-      }
-      const EigenMatrixXf e_Acm(m_A.block(2, Nrc, Nx6, 9));
-      scc = EigenAssertEqual(e_Acm, Acm, verbose, str + ".Acm") && scc;
-      const EigenMatrix9x9f e_Amm(m_A.block<9, 9>(Nrc, Nrc));
-      scc = e_Amm.AssertEqual(Amm, verbose, str + ".Amm") && scc;
-      const EigenVector9f e_bm(m_b.block<9, 1>(Nrc, 0));
-      scc = e_bm.AssertEqual(bm, verbose, str + ".bm") && scc;
-      return scc;
-    }
-    
-    void PropagateLF(const IMU::Delta::EigenFactor::RelativeLF &e_A, EigenVectorXf *e_x = NULL);
-    void PropagateKF(const IMU::Delta::EigenFactor::RelativeKF &e_A, EigenVectorXf *e_x = NULL);
-    void GetPriorPose(const int iKF, Pose::EigenPrior *e_Ap) const;
-    void GetPriorMotion(Motion::EigenPrior *e_Ap) const;
-  };
-  void EigenGetResidual(const AlignedVector<Rigid3D> &Cs, const Camera &C,
-                        EigenVectorXf *e_r, const float eps) const;
-  void EigenGetPriorMeasurement(const float w, EigenMatrixXf *e_S,
-                                EigenVectorXf *e_x = NULL) const;
-#endif
-
 };
-
-
 
 }  // namespace CameraPrior
 

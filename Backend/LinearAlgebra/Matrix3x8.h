@@ -65,20 +65,6 @@ class AlignedMatrix3x8f {
     return data[row * 8 + col];
   }
 
-#if 0
-  inline void Set(const AlignedMatrix3x3f &M0, const AlignedMatrix3x3f &M1,
-                  const AlignedVector3f &M2) {
-    memcpy(&m00(), &M0.m00(), 12);  memcpy(&m03(), &M1.m00(), 12);  m06() = M2.v0();
-    memcpy(&m10(), &M0.m10(), 12);  memcpy(&m13(), &M1.m10(), 12);  m16() = M2.v1();
-    memcpy(&m20(), &M0.m20(), 12);  memcpy(&m23(), &M1.m20(), 12);  m26() = M2.v2();
-  }
-  inline void Set(const AlignedMatrix3x6f &M0, const Vector2f &M10, const float M11) {
-    memcpy(&m00(), &M0.m00(), 24);  m06() = M10.v0();
-    memcpy(&m10(), &M0.m10(), 24);  m16() = M10.v1();
-    memcpy(&m20(), &M0.m20(), 24);  m26() = M11;
-  }
-#endif
-
   inline void MakeZero() { memset(this, 0, sizeof(AlignedMatrix3x8f)); }
 
   inline void Print(const bool e = false) const {
@@ -112,44 +98,4 @@ class AlignedMatrix3x8f {
 };
 }
 
-#ifdef CFG_DEBUG_EIGEN
-#include <Eigen/Eigen>
-class EigenMatrix3x8f : public Eigen::Matrix<float, 3, 8> {
- public:
-  inline EigenMatrix3x8f() : Eigen::Matrix<float, 3, 8>() {}
-  inline EigenMatrix3x8f(const Eigen::Matrix<float, 3, 8> &e_M) : Eigen::Matrix<float, 3, 8>(e_M) {}
-  inline EigenMatrix3x8f(const LA::AlignedMatrix3x8f &M) : Eigen::Matrix<float, 3, 8>() {
-    const float* _M[3] = {&M.m00(), &M.m10(), &M.m20()};
-    Eigen::Matrix<float, 3, 8> &e_M = *this;
-    for (int i = 0; i < 3; ++i)
-      for (int j = 0; j < 8; ++j)
-        e_M(i, j) = _M[i][j];
-  }
-  inline EigenMatrix3x8f(const EigenMatrix3x7f &e_M0, const EigenVector3f &e_M1) {
-    block<3, 7>(0, 0) = e_M0;
-    block<3, 1>(0, 7) = e_M1;
-  }
-  inline void operator = (const Eigen::Matrix<float, 3, 8> &e_M) { *((Eigen::Matrix<float, 3, 8> *) this) = e_M; }
-  inline LA::AlignedMatrix3x8f GetAlignedMatrix3x8f() const {
-    LA::AlignedMatrix3x8f M;
-    float* _M[3] = {&M.m00(), &M.m10(), &M.m20()};
-    const Eigen::Matrix<float, 3, 8> &e_M = *this;
-    for (int i = 0; i < 3; ++i)
-      for (int j = 0; j < 8; ++j)
-        _M[i][j] = e_M(i, j);
-    return M;
-  }
-  inline void Print(const bool e = false) const { GetAlignedMatrix3x8f().Print(e); }
-//  inline bool AssertEqual(const LA::AlignedMatrix3x8f &M,
-//                          const int verbose = 1, const std::string str = "",
-//                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-//    return GetAlignedMatrix3x8f().AssertEqual(M, verbose, str, epsAbs, epsRel);
-//  }
-//  inline bool AssertEqual(const EigenMatrix3x8f &e_M,
-//                          const int verbose = 1, const std::string str = "",
-//                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-//    return AssertEqual(e_M.GetAlignedMatrix3x8f(), verbose, str, epsAbs, epsRel);
-//  }
-};
-#endif
 #endif

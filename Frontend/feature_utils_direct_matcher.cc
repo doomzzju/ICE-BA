@@ -232,9 +232,6 @@ bool DirectMatcher::findEpipolarMatchDirect(const vio::cameras::CameraBase& cam_
   ray_B /= ray_B(2);
   if (vio::cameras::CameraBase::ProjectionStatus::Successful !=
       cam_cur.project(ray_B, &px_B)) {
-#ifndef __FEATURE_UTILS_NO_DEBUG__
-    VLOG(2) << "ray_A (far) cannot be reprojected in cam_cur";
-#endif
     return false;
   }
 
@@ -249,11 +246,6 @@ bool DirectMatcher::findEpipolarMatchDirect(const vio::cameras::CameraBase& cam_
     }
   }
   if (invalid_ray_A) {
-#ifndef __FEATURE_UTILS_NO_DEBUG__
-    VLOG(2) << "ray_B (near) cannot be reprojected in cam_cur "
-            << " d_min = " << d_min
-            << " d_estimate = " << d_estimate;
-#endif
     return false;
   }
 
@@ -270,9 +262,6 @@ bool DirectMatcher::findEpipolarMatchDirect(const vio::cameras::CameraBase& cam_
     LOG(WARNING) << "warp::getWarpMatrixAffine fails";
     return false;
   }
-#ifndef __FEATURE_UTILS_NO_DEBUG__
-  VLOG(2) << "A_cur_ref_ =\n" << A_cur_ref_;
-#endif
 
   const int max_level = pyrs_ref.size() - 1;
   const int search_level = warp::getBestSearchLevel(A_cur_ref_, max_level);
@@ -302,9 +291,6 @@ bool DirectMatcher::findEpipolarMatchDirect(const vio::cameras::CameraBase& cam_
     return false;
   }
   createPatchFromPatchWithBorder();
-#ifndef __FEATURE_UTILS_NO_DEBUG__
-  VLOG(2) << " search_level = " << search_level << " epi_length_ = " << epi_length_;
-#endif
   if (epi_length_ < options_.max_epi_length_optim) {
     // The epipolar search line is short enough (< 2 pixels)
     // to perform direct alignment
@@ -455,10 +441,6 @@ bool DirectMatcher::findEpipolarMatchDirect(const vio::cameras::CameraBase& cam_
         ssd_corr = ssd;
         ray_best = ray;
       }
-#ifndef __FEATURE_UTILS_NO_DEBUG__
-      VLOG(2) << "search pxi=[" << pxi[0] << ", " << pxi[1] << "] zmssd = " << zmssd
-              << " ssd = " << ssd;
-#endif
       if (dbg_cur != nullptr) {
         dbg_cur->at<cv::Vec3b>(pxi[1], pxi[0]) = cv::Vec3b(255, 0, 0);
       }
@@ -573,9 +555,6 @@ bool DirectMatcher::findEpipolarMatchDirect(const vio::cameras::CameraBase& cam_
   }
 
   // No patch qualifiess a match
-#ifndef __FEATURE_UTILS_NO_DEBUG__
-  VLOG(1) << "No matching patch found for this feature";
-#endif
   return false;
 }
 
@@ -733,9 +712,6 @@ bool ImgFeaturePropagator::PropagateFeatures(
         }
       }
     }
-#ifndef __FEATURE_UTILS_NO_DEBUG__
-    VLOG(1) << "findEpipolarMatchDirect for of_id = " << ref_kp.class_id;
-#endif
     if (!direct_matcher_.findEpipolarMatchDirect(*cam_ref_,
                                                  *cam_cur_,
                                                  px_ref,
@@ -754,22 +730,8 @@ bool ImgFeaturePropagator::PropagateFeatures(
                                                  &depth,
                                                  &level_cur,
                                                  dbg_cur_ptr_)) {
-#ifndef __FEATURE_UTILS_NO_DEBUG__
-      if (draw_debug) {
-        cv::imwrite("/tmp/per_feat_dbg/det_" + boost::lexical_cast<std::string>(ref_kp.class_id)
-                    + ".png", dbg_img_);
-      }
-      VLOG(1) << "findEpipolarMatchDirect fails for of_id: " << ref_kp.class_id;
-#endif
       continue;
     }
-#ifndef __FEATURE_UTILS_NO_DEBUG__
-    if (draw_debug) {
-      cv::imwrite("/tmp/per_feat_dbg/det_" + boost::lexical_cast<std::string>(ref_kp.class_id)
-                  + ".png", dbg_img_);
-      VLOG(1) << "findEpipolarMatchDirect succeeds for of_id: " << ref_kp.class_id;
-    }
-#endif
 
     // check boundary condition (set to 20 pixels for computing ORB features)
     // [NOTE] Returned px_cur should be within mask_cur_ already

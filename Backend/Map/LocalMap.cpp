@@ -92,9 +92,6 @@ ubyte LocalMap::IBA_Synchronize(const int iFrm, std::list<CameraLF> &CsLF,
     const ubyte uc = Uc & LM_FLAG_FRAME_UPDATE_CAMERA_KF, ud = Uc & LM_FLAG_FRAME_UPDATE_DEPTH;
     if (uc || ud) {
       const int nKFs = static_cast<int>(m_CsKF.size());
-#ifdef CFG_DEBUG
-      UT_ASSERT(static_cast<int>(CsKF.size()) == nKFs && ds.size() == m_ds.size());
-#endif
       if (ud) {
         m_uds.swap(uds);
         m_uds.assign(uds.size(), LM_FLAG_TRACK_DEFAULT);
@@ -105,9 +102,6 @@ ubyte LocalMap::IBA_Synchronize(const int iFrm, std::list<CameraLF> &CsLF,
           continue;
         }
         CameraKF &C2 = CsKF[iKF];
-#ifdef CFG_DEBUG
-        UT_ASSERT(C1.m_iFrm == C2.m_iFrm);
-#endif
         if (C1.m_uc & LM_FLAG_FRAME_UPDATE_CAMERA_KF) {
           C2.m_C = C1.m_C;
 #ifdef CFG_CHECK_REPROJECTION
@@ -140,15 +134,9 @@ void LocalMap::LBA_Update(const int iFrm1, const int iFrm2, const std::vector<in
                         ) {
   MT_WRITE_LOCK_BEGIN(m_MT, iFrm2, MT_TASK_LM_LBA_Update);
   const int nLFs = CsLF.Size();
-#ifdef CFG_DEBUG
-  UT_ASSERT(static_cast<int>(m_CsLF.size()) >= nLFs);
-#endif
   while (m_CsLF.front().m_iFrm != iFrm1) {
     m_CsLF.pop_front();
   }
-#ifdef CFG_DEBUG
-  UT_ASSERT(static_cast<int>(m_CsLF.size()) >= nLFs);
-#endif
   std::list<CameraLF>::iterator C = m_CsLF.begin();
   for (int ic = 0; ic < nLFs; ++ic, ++C) {
     const int iLF = ic2LF[ic];
@@ -183,9 +171,6 @@ void LocalMap::LBA_Update(const int iFrm1, const int iFrm2, const std::vector<in
       const int _iKF = static_cast<int>(i - m_CsKF.begin());
       const int id1 = iKF2d[iKF], id2 = iKF2d[iKF + 1], Nx = id2 - id1;
       const int _id1 = m_iKF2d[_iKF], _id2 = m_iKF2d[_iKF + 1];
-#ifdef CFG_DEBUG
-      UT_ASSERT(Nx <= _id2 - _id1);
-#endif
       memcpy(m_ds.data() + _id1, ds.data() + id1, sizeof(Depth::InverseGaussian) * Nx);
       const ubyte *uds1 = uds.data() + id1;
       ubyte *uds2 = m_uds.data() + _id1;

@@ -197,9 +197,6 @@ class AlignedVector {
     Resize(_N);
   }
   inline void Erase(const int N, AlignedVector<TYPE, GROWTH, GROWTH_MAX> &V) {
-#ifdef CFG_DEBUG
-    UT_ASSERT(N <= Size());
-#endif
     V.Set(Data() + N, Size() - N);
     Resize(N);
     Swap(V);
@@ -226,9 +223,6 @@ class AlignedVector {
     memcpy(Data(), V, sizeof(TYPE) * N);
   }
   inline AlignedVector<TYPE, GROWTH, GROWTH_MAX> GetBlock(const int N) {
-#ifdef CFG_DEBUG
-    UT_ASSERT(N >= 0 && N <= m_N);
-#endif
     AlignedVector<TYPE, GROWTH, GROWTH_MAX> V;
     V.m_own = false;
     V.m_data = m_data;
@@ -236,9 +230,6 @@ class AlignedVector {
     return V;
   }
   inline AlignedVector<TYPE, GROWTH, GROWTH_MAX> GetBlock(const int i, const int N) {
-#ifdef CFG_DEBUG
-    UT_ASSERT(i >= 0 && N >= 0 && i + N <= m_N);
-#endif
     AlignedVector<TYPE, GROWTH, GROWTH_MAX> V;
     V.m_own = false;
     V.m_data = m_data + i;
@@ -247,9 +238,6 @@ class AlignedVector {
   }
 
   inline void Copy(const AlignedVector<TYPE, GROWTH, GROWTH_MAX> &V) {
-#ifdef CFG_DEBUG
-    UT_ASSERT(Size() == V.Size());
-#endif
     memcpy(m_data, V.Data(), sizeof(TYPE) * Size());
   }
   inline void Bind(void *V, const int N) {
@@ -280,15 +268,9 @@ class AlignedVector {
     return Size() == V.Size() && UT::VectorEqual(Data(), V.Data(), Size());
   }
   inline const TYPE& operator[] (const int i) const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(i >= 0 && i < m_N);
-#endif
     return m_data[i];
   }
   inline TYPE& operator[] (const int i) {
-#ifdef CFG_DEBUG
-    UT_ASSERT(i >= 0 && i < m_N);
-#endif
     return m_data[i];
   }
   inline const TYPE* Data() const { return m_data; }
@@ -296,27 +278,15 @@ class AlignedVector {
   inline const TYPE* End() const { return m_data + m_N; }
   inline       TYPE* End()       { return m_data + m_N; }
   inline const TYPE& Front() const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(m_N != 0);
-#endif
     return m_data[0];
   }
   inline TYPE& Front() {
-#ifdef CFG_DEBUG
-    UT_ASSERT(m_N != 0);
-#endif
     return m_data[0];
   }
   inline const TYPE& Back() const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(m_N != 0);
-#endif
     return m_data[m_N - 1];
   }
   inline TYPE& Back() {
-#ifdef CFG_DEBUG
-    UT_ASSERT(m_N != 0);
-#endif
     return m_data[m_N - 1];
   }
 

@@ -171,61 +171,7 @@ template<> inline void SymmetricMatrix4x4f::Get(AlignedMatrix4x4f &M) const {
   M.m_20_21_22_23().vset_all_lane(m02(), m12(), m22(), m23());
   M.m_30_31_32_33().vset_all_lane(m03(), m13(), m23(), m33());
 }
-// This interface is not used so far, and it's a little weird,
-// if it's used in the future, Please add unit test for it.
-#if 0
-template<> inline void SymmetricMatrix4x4f::AAT(const AlignedMatrix4x4f &A,
-                                                SymmetricMatrix4x4f &AAT) {
-  AAT.m00() = (A.m_00_01_02_03() * A.m_00_01_02_03()).vsum_012();
-  AAT.m01() = (A.m_00_01_02_03() * A.m_10_11_12_13()).vsum_012();
-  AAT.m02() = (A.m_00_01_02_03() * A.m_20_21_22_23()).vsum_012();
-  AAT.m03() = (A.m_00_01_02_03() * A.m_30_31_32_33()).vsum_012();
-  AAT.m11() = (A.m_10_11_12_13() * A.m_10_11_12_13()).vsum_012();
-  AAT.m12() = (A.m_10_11_12_13() * A.m_20_21_22_23()).vsum_012();
-  AAT.m13() = (A.m_10_11_12_13() * A.m_30_31_32_33()).vsum_012();
-  AAT.m22() = (A.m_20_21_22_23() * A.m_20_21_22_23()).vsum_012();
-  AAT.m23() = (A.m_20_21_22_23() * A.m_30_31_32_33()).vsum_012();
-  AAT.m33() = (A.m_30_31_32_33() * A.m_30_31_32_33()).vsum_012();
-}
-#endif
+
 }
 
-#ifdef CFG_DEBUG_EIGEN
-class EigenMatrix4x4f : public Eigen::Matrix4f {
- public:
-  inline EigenMatrix4x4f() : Eigen::Matrix4f() {}
-  inline EigenMatrix4x4f(const Eigen::Matrix4f &e_M) : Eigen::Matrix4f(e_M) {}
-  inline EigenMatrix4x4f(const LA::AlignedMatrix4x4f &M) : Eigen::Matrix4f() {
-    Eigen::Matrix4f &e_M = *this;
-    e_M(0, 0) = M.m00();  e_M(0, 1) = M.m01();  e_M(0, 2) = M.m02();  e_M(0, 3) = M.m03();
-    e_M(1, 0) = M.m10();  e_M(1, 1) = M.m11();  e_M(1, 2) = M.m12();  e_M(1, 3) = M.m13();
-    e_M(2, 0) = M.m20();  e_M(2, 1) = M.m21();  e_M(2, 2) = M.m22();  e_M(2, 3) = M.m23();
-    e_M(3, 0) = M.m30();  e_M(3, 1) = M.m31();  e_M(3, 2) = M.m32();  e_M(3, 3) = M.m33();
-  }
-  inline void operator = (const Eigen::Matrix4f &e_M) { *((Eigen::Matrix4f *) this) = e_M; }
-  inline LA::AlignedMatrix4x4f GetAlignedMatrix4x4f() const {
-    LA::AlignedMatrix4x4f M;
-    const Eigen::Matrix4f &e_M = *this;
-    M.m00() = e_M(0, 0);  M.m01() = e_M(0, 1);  M.m02() = e_M(0, 2);  M.m03() = e_M(0, 3);
-    M.m10() = e_M(1, 0);  M.m11() = e_M(1, 1);  M.m12() = e_M(1, 2);  M.m13() = e_M(1, 3);
-    M.m20() = e_M(2, 0);  M.m21() = e_M(2, 1);  M.m22() = e_M(2, 2);  M.m23() = e_M(2, 3);
-    M.m30() = e_M(3, 0);  M.m31() = e_M(3, 1);  M.m32() = e_M(3, 2);  M.m33() = e_M(3, 3);
-    return M;
-  }
-  static inline EigenVector4f Solve(const EigenMatrix4x4f &A, const EigenVector4f &b) {
-    return EigenVector4f(A.inverse() * b);
-  }
-  inline void Print(const bool e = false) const { GetAlignedMatrix4x4f().Print(e); }
-  inline bool AssertEqual(const LA::AlignedMatrix4x4f &M,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetAlignedMatrix4x4f().AssertEqual(M, verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertEqual(const EigenMatrix4x4f &e_M,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return AssertEqual(e_M.GetAlignedMatrix4x4f(), verbose, str, epsAbs, epsRel);
-  }
-};
-#endif
 #endif

@@ -243,12 +243,7 @@ class AlignedVector3f {
   }
 
   inline void Load(FILE *fp) {
-#ifdef CFG_DEBUG
-    const int N = fscanf(fp, "%f %f %f", &v0(), &v1(), &v2());
-    UT_ASSERT(N == 3);
-#else
     fscanf(fp, "%f %f %f", &v0(), &v1(), &v2());
-#endif
   }
 
   inline bool AssertEqual(const AlignedVector3f &v,
@@ -461,64 +456,4 @@ template<> inline void Vector3d::Set(const float *v) {
 }
 }  // namespace LA
 
-#ifdef CFG_DEBUG_EIGEN
-class EigenVector3f : public Eigen::Vector3f {
- public:
-  inline EigenVector3f() : Eigen::Vector3f() {}
-  inline EigenVector3f(const Eigen::Vector3f &e_v) : Eigen::Vector3f(e_v) {}
-  inline EigenVector3f(const float *v) : Eigen::Vector3f(v[0], v[1], v[2]) {}
-  inline EigenVector3f(const LA::AlignedVector3f &v)
-    : Eigen::Vector3f(v.v0(), v.v1(), v.v2()) { }
-  inline EigenVector3f(const LA::Vector3f &v) : Eigen::Vector3f(v.v0(), v.v1(), v.v2()) {}
-  inline EigenVector3f(const float v0, const float v1, const float v2) : Eigen::Vector3f(v0, v1,
-                                                                                         v2) {}
-  inline EigenVector3f(const EigenVector2f &e_v0, const float v1)
-    : Eigen::Vector3f(e_v0(0), e_v0(1), v1) { }
-  inline void operator = (const Eigen::Vector3f &e_v) { *((Eigen::Vector3f *) this) = e_v; }
-  inline LA::AlignedVector3f GetAlignedVector3f() const {
-    LA::AlignedVector3f v;
-    const Eigen::Vector3f &e_v = *this;
-    v.v0() = e_v(0);
-    v.v1() = e_v(1);
-    v.v2() = e_v(2);
-    return v;
-  }
-  inline LA::Vector3f GetVector3f() const {
-    LA::Vector3f v;
-    const Eigen::Vector3f &e_v = *this;
-    v.v0() = e_v(0);
-    v.v1() = e_v(1);
-    v.v2() = e_v(2);
-    return v;
-  }
-  inline EigenVector2f Project() const {
-    EigenVector2f e_x;
-    e_x.y() = 1.0f / z();
-    e_x.x() = x() * e_x.y();
-    e_x.y() = y() * e_x.y();
-    return e_x;
-  }
-  inline float SquaredLength() const { return GetAlignedVector3f().SquaredLength(); }
-  inline void Print(const bool e = false) const { GetAlignedVector3f().Print(e); }
-  static inline EigenVector3f GetRandom(const float vMax) {
-    return EigenVector3f(LA::AlignedVector3f::GetRandom(vMax));
-  }
-  inline bool AssertEqual(const LA::AlignedVector3f &v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetAlignedVector3f().AssertEqual(v, verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertEqual(const LA::Vector3f &v, const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetVector3f().AssertEqual(v, verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertEqual(const EigenVector3f &e_v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return AssertEqual(e_v.GetAlignedVector3f(), verbose, str, epsAbs, epsRel);
-  }
-  static inline EigenVector3f Zero() { return EigenVector3f(Eigen::Vector3f::Zero()); }
-};
-
-#endif
 #endif  // LINEARALGEBRA_VECTOR3_H_

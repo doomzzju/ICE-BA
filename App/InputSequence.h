@@ -76,31 +76,6 @@ class InputSequence {
       m_filesUpd = UT::FilesSearch(m_filesFtr, dirUpd, extUpd);
     }
     m_binary = extFtr == "dat";
-#ifdef CFG_STEREO
-    const std::string fileImgRight = m_dir + cfgor.GetArgument("input_image_right", "r/*.png");
-    m_filesImgRight = UT::FilesSearch(fileImgRight, iStart, iStep, iEnd);
-    if (m_binary) {
-      m_filesFtrRight.assign(m_filesFtr.size(), "");
-      if (m_filesImgRight.size() != m_filesFtr.size()) {
-        m_filesImgRight = UT::FilesSearch(m_filesFtr, UT::FileNameExtractDirectory(fileImgRight),
-                                          extImg);
-      }
-    } else {
-      const std::string fileFtrRight = m_dir + cfgor.GetArgument("input_feature_right", "r_det/*.yml");
-      m_filesFtrRight = UT::FilesSearch(fileFtrRight, iStart, iStep, iEnd);
-      if (m_filesFtrRight.size() != m_filesFtr.size()) {
-        m_filesFtrRight = UT::FilesSearch(m_filesFtr, UT::FileNameExtractDirectory(fileFtrRight),
-                                          extFtr);
-      }
-      if (m_filesImgRight.size() != m_filesFtrRight.size()) {
-        m_filesImgRight = UT::FilesSearch(m_filesFtrRight, UT::FileNameExtractDirectory(fileImgRight),
-                                          extImg);
-      }
-#ifdef CFG_DEBUG
-      UT_ASSERT(m_filesFtrRight.size() == m_filesFtr.size());
-#endif
-    }
-#endif
     const double fps = cfgor.GetArgument("input_fps", 30.0);
     const bool tReset = cfgor.GetArgument("input_time_reset", 0) != 0;
     const double tFactor = cfgor.GetArgument("input_time_factor", 1.0e-4);
@@ -123,11 +98,6 @@ class InputSequence {
         m_tFirst = t;
       }
       m_ts[iImg] = float(t - m_tFirst);
-#ifdef CFG_DEBUG
-      if (iImg > 0) {
-        UT_ASSERT(m_ts[iImg] > m_ts[iImg - 1]);
-      }
-#endif
     }
     if (iStart != 0 || iStep != 1) {
       const int nFrms2 = static_cast<int>(m_ts.size()), nFrms1 = iStart + iStep * nFrms2;
@@ -253,16 +223,6 @@ class InputSequence {
         m_K.Tu[1][3] = cfgor.GetArgument("input_imu_position_y", 0.0f);
         m_K.Tu[2][3] = cfgor.GetArgument("input_imu_position_z", 0.0f);
       }
-#ifdef CFG_STEREO
-      const std::string fileCalibRight = m_dir + cfgor.GetArgument("input_calibration_file_right",
-                                                                   "calibration_right.txt");
-      if (!IBA::LoadCalibration(fileCalibRight, m_K.Tr, &m_K.Kr)) {
-        m_K.Tr[0][0] = FLT_MAX;
-        m_K.Tr[0][3] = cfgor.GetArgument("input_calibration_right_position_x", 0.0f);
-        m_K.Tr[1][3] = cfgor.GetArgument("input_calibration_right_position_y", 0.0f);
-        m_K.Tr[2][3] = cfgor.GetArgument("input_calibration_right_position_z", 0.0f);
-      }
-#endif
     }
 //#if 0
 #if 1
@@ -330,9 +290,6 @@ class InputSequence {
     }
     if (UT::FileNameExtractExtension(fileGT) == "dat") {
       IBA::LoadGroundTruth(fileGT, &m_XsGT);
-#ifdef CFG_DEBUG
-      UT_ASSERT(m_XsGT.size() == m_ts.size());
-#endif
       ConvertCameras(m_XsGT, &m_CTGT.m_Cs, &m_CTGT.m_ba, &m_CTGT.m_bw);
       //CameraTrajectory::TransformPose(Ts, m_CTGT.m_Cs);
       if (Ru) {
@@ -362,10 +319,6 @@ class InputSequence {
           m_filesDKF[iFrm2] = m_filesDKF[iFrm1];
           m_filesDMP[iFrm2] = m_filesDMP[iFrm1];
           m_filesUpd[iFrm2] = m_filesUpd[iFrm1];
-#ifdef CFG_STEREO
-          m_filesImgRight[iFrm2] = m_filesImgRight[iFrm1];
-          m_filesFtrRight[iFrm2] = m_filesFtrRight[iFrm1];
-#endif
           if (!m_us.Empty()) {
             m_ius[iFrm2 + 1] = m_ius[iFrm1 + 1];
           }
@@ -391,10 +344,6 @@ class InputSequence {
         m_filesDKF.resize(nFrms2);
         m_filesDMP.resize(nFrms2);
         m_filesUpd.resize(nFrms2);
-#ifdef CFG_STEREO
-        m_filesImgRight.resize(nFrms2);
-        m_filesFtrRight.resize(nFrms2);
-#endif
         if (!m_us.Empty()) {
           m_ius.resize(nFrms2 + 1);
         }
@@ -406,25 +355,6 @@ class InputSequence {
       m_CTGT.m_bw.Get(m_K.bw);
     }
     if (fileGTMot != m_dir && !IBA::LoadGroundTruth(fileGTMot, &m_XsGT)) {
-#ifdef CFG_GROUND_TRUTH
-      IBA::Solver solver;
-      IBA::CurrentFrame CF;
-      IBA::KeyFrame KF;
-      LoadParameters(cfgor);
-      solver.Create(m_K, 0, 0, (-1 << 8) | -1, 0, "", m_dir, &m_XsGT);
-      solver.Start();
-      const int nFrms = Size();
-      for (int iFrm = 0; iFrm < nFrms; ++iFrm) {
-        LoadCurrentFrame(iFrm, &CF, &KF, &solver);
-        solver.PushIMUMeasurementsGT(CF);
-        UT::Print("\r%d / %d = %f%%", iFrm + 1, nFrms, UT::Percentage(iFrm + 1, nFrms));
-      }
-      UT::Print("\n");
-      solver.EstimateMotionGT(&m_XsGT);
-      solver.Stop();
-      solver.Destroy();
-      IBA::SaveGroundTruth(fileGTMot, m_XsGT);
-#endif
     }
     const std::string fileKF = m_dir + cfgor.GetArgument("input_keyframe",
                                                          "keyframe_decisions.txt");
@@ -434,25 +364,6 @@ class InputSequence {
     if (fileGTDep != m_dir && !IBA::LoadGroundTruth(fileGTDep, &m_dsGT) && !m_XsGT.empty()) {
       const bool keyframeOnly = cfgor.GetArgument("input_ground_truth_depth_keyframe_only",
                                                   0) != 0;
-#ifdef CFG_GROUND_TRUTH
-      IBA::Solver solver;
-      IBA::CurrentFrame CF;
-      IBA::KeyFrame KF;
-      LoadParameters(cfgor);
-      solver.Create(m_K, 0, 0, (-1 << 8) | -1, 0, "", m_dir, &m_XsGT);
-      solver.Start();
-      const int nFrms = Size();
-      for (int iFrm = 0; iFrm < nFrms; ++iFrm) {
-        LoadCurrentFrame(iFrm, &CF, &KF, &solver);
-        solver.PushDepthMeasurementsGT(CF, KF.iFrm == -1 ? NULL : &KF, keyframeOnly);
-        UT::Print("\r%d / %d = %f%%", iFrm + 1, nFrms, UT::Percentage(iFrm + 1, nFrms));
-      }
-      UT::Print("\n");
-      solver.TriangulateDepthsGT(&m_dsGT);
-      solver.Stop();
-      solver.Destroy();
-      IBA::SaveGroundTruth(fileGTDep, m_dsGT);
-#endif
     }
 
     const std::string fileZp = m_dir + cfgor.GetArgument("input_relative_constraint",
@@ -469,10 +380,6 @@ class InputSequence {
           Z.iFrm1 = Z.iFrm2 = -1;
         } else {
           m_iFrm2Z[Z.iFrm2] = iZ;
-#ifdef CFG_DEBUG
-//#if 0
-          UT_ASSERT(m_kfs[Z.iFrm1] != 0 && m_kfs[Z.iFrm2] != 0);
-#endif
           m_kfs[Z.iFrm1] = m_kfs[Z.iFrm2] = 2;
         }
       }
@@ -503,13 +410,7 @@ class InputSequence {
       if (!IBA::LoadCurrentFrame(m_filesFtr[iFrm], CF, KF)) {
         return false;
       }
-#ifdef CFG_DEBUG
-      UT_ASSERT(CF->iFrm == iFrm);
-#endif
       CF->fileName = m_filesImg[CF->iFrm];
-#ifdef CFG_STEREO
-      CF->fileNameRight = m_filesImgRight[CF->iFrm];
-#endif
       if (KF->iFrm == -1) {
         if (iFrm < KF_FIRST_LOCAL_FRAMES && KF_MIN_FRAME_STEP > 0 &&
             iFrm - solver->GetKeyFrameIndex(solver->GetKeyFrames() - 1) == KF_MIN_FRAME_STEP) {
@@ -536,63 +437,7 @@ class InputSequence {
             X.zs.resize(j);
           }
         }
-#if 0
-        if (!KF->Xs.empty()) {
-          std::vector<ubyte> kfs(iFrm + 1, 0);
-          const std::vector<int> &iFrmsKF = solver->GetKeyFrameIndexes();
-          const int nKFs = static_cast<int>(iFrmsKF.size());
-          for (int iKF = 0; iKF < nKFs; ++iKF) {
-            kfs[iFrmsKF[iKF]] = 1;
-          }
-          kfs[KF->iFrm] = 1;
-          int iX, jX, i, j;
-          const int NX = static_cast<int>(KF->Xs.size());
-          for (iX = jX = 0; iX < NX; ++iX) {
-            IBA::MapPoint &X = KF->Xs[iX];
-            const int Nz = static_cast<int>(X.zs.size());
-            for (i = j = 0; i < Nz; ++i) {
-              const IBA::MapPointMeasurement &z = X.zs[i];
-              if (kfs[z.iFrm]) {
-                X.zs[j++] = z;
-              }
-            }
-            if (j == 1 && X.zs.front().iFrm != KF->iFrm) {
-              j = 0;
-            }
-            X.zs.resize(j);
-            if (!X.zs.empty()) {
-              KF->Xs[jX++] = X;
-            }
-          }
-          KF->Xs.resize(jX);
-        }
-        if (KF->Xs.size() < KF_MIN_FEATURE_SROUCES && KF->zs.size() >= KF_MIN_FEATURE_MEASUREMENTS &&
-            iFrm >= KF_FIRST_LOCAL_FRAMES &&
-            (KF_MIN_FRAME_STEP <= 0 || iFrm - solver->GetKeyFrameIndex(solver->GetKeyFrames() - 1) != KF_MIN_FRAME_STEP) &&
-            (m_kfs.empty() || (m_kfs[iFrm] != 2 && (m_kfs[iFrm] != 1 || KF_MIN_FRAME_STEP != -1)))) {
-          KF->iFrm = -1;
-          KF->zs.resize(0);
-          KF->Xs.resize(0);
-        }
-#endif
       }
-#ifdef CFG_DEBUG
-      if (!m_ius.empty()) {
-        LA::AlignedVector3f a, w;
-        const int i1 = m_ius[iFrm], i2 = m_ius[iFrm + 1], N = i2 - i1;
-        UT_ASSERT(static_cast<int>(CF->us.size()) == N);
-        const IMU::Measurement *us = m_us.Data() + i1;
-        for (int i = 0; i < N; ++i) {
-          const IMU::Measurement &u1 = us[i];
-          const IBA::IMUMeasurement &u2 = CF->us[i];
-          a.Set(u2.a);
-          w.Set(u2.w);
-          u1.m_a.AssertEqual(a);
-          u1.m_w.AssertEqual(w);
-          UT::AssertEqual(u1.t(), u2.t);
-        }
-      }
-#endif
       return true;
     }
     CF->iFrm = iFrm;
@@ -607,9 +452,6 @@ class InputSequence {
       Xs = NULL;
     }
     //////////////////////////////////////////////////////////////////////////
-#ifdef CFG_STEREO
-    solver->LoadFeatures(m_filesFtrRight[iFrm], iFrm, &CF->zs, Xs, iFrms, 1);
-#endif
     const int i1 = m_ius[iFrm], i2 = m_ius[iFrm + 1], N = i2 - i1;
     const IMU::Measurement *us = m_us.Data() + i1;
     CF->us.resize(N);
@@ -624,9 +466,6 @@ class InputSequence {
     CF->d.d = 0.0f;
     CF->d.s2 = 0.0f;
     CF->fileName = m_filesImg[iFrm];
-#ifdef CFG_STEREO
-    CF->fileNameRight = m_filesImgRight[iFrm];
-#endif
     if (Xs || iFrm < KF_FIRST_LOCAL_FRAMES ||
        (KF_MIN_FRAME_STEP > 0 && iFrm - solver->GetKeyFrameIndex(solver->GetKeyFrames() - 1) == KF_MIN_FRAME_STEP) ||
        (!m_kfs.empty() && (m_kfs[iFrm] == 2 || m_kfs[iFrm] == 1 && KF_MIN_FRAME_STEP == -1))) {
@@ -650,9 +489,6 @@ class InputSequence {
       return false;
     } else {
       *Z = m_Zs[m_iFrm2Z[iFrm]];
-#ifdef CFG_DEBUG
-      UT_ASSERT(m_kfs[Z->iFrm1] == 2 && Z->iFrm2 == iFrm);
-#endif
       return true;
     }
   }
@@ -724,9 +560,6 @@ class InputSequence {
   std::vector<float> m_ts;
   std::string m_dir;
   std::vector<std::string> m_filesImg, m_filesFtr, m_filesDKF, m_filesDMP, m_filesUpd;
-#ifdef CFG_STEREO
-  std::vector<std::string> m_filesImgRight, m_filesFtrRight;
-#endif
   std::vector<int> m_iFrms;
   AlignedVector<IMU::Measurement> m_us;
   std::vector<int> m_ius;

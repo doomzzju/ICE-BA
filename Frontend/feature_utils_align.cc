@@ -107,9 +107,6 @@ bool align1D(const cv::Mat& cur_img,
     }
 
     if (iter > 0 && new_chi2 > chi2) {
-#if SUBPIX_VERBOSE
-      cout << "error increased." << endl;
-#endif
       u -= update[0];
       v -= update[1];
       break;
@@ -121,17 +118,7 @@ bool align1D(const cv::Mat& cur_img,
     v += update[0] * dir[1];
     mean_diff += update[1];
 
-#if SUBPIX_VERBOSE
-    VLOG(2) << "Iter " << iter << ":"
-            << "\t u=" << u << ", v=" << v
-            << "\t update = " << update[0] << ", " << update[1]
-            << "\t new chi2 = " << new_chi2;
-#endif
-
     if (update[0] * update[0] + update[1] * update[1] < min_update_squared) {
-#if SUBPIX_VERBOSE
-      VLOG(2) << "converged.";
-#endif
       converged = true;
       break;
     }
@@ -248,17 +235,7 @@ bool align2D(const cv::Mat& cur_img,
     v += update[1];
     mean_diff += update[2];
 
-#if SUBPIX_VERBOSE
-    VLOG(2) << "Iter " << iter << ":"
-            << "\t u=" << u << ", v=" << v
-            << "\t update = " << update[0] << ", " << update[1]
-            << "\t chi2 = " << chi2;
-#endif
-
     if (update[0] * update[0] + update[1] * update[1] < min_update_squared) {
-#if SUBPIX_VERBOSE
-      VLOG(2) << "converged.";
-#endif
       converged = true;
       break;
     }

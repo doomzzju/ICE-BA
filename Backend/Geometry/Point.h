@@ -177,29 +177,4 @@ class Point3D : public LA::AlignedVector3f {
   }
 };
 
-#ifdef CFG_DEBUG_EIGEN
-class EigenPoint2D : public EigenVector2f {
- public:
-  inline EigenPoint2D() : EigenVector2f() {}
-  inline EigenPoint2D(const EigenVector2f &e_x) : EigenVector2f(e_x) {}
-  inline EigenPoint2D(const float x, const float y) : EigenVector2f(x, y) {}
-};
-class EigenPoint3D : public EigenVector3f {
- public:
-  inline EigenPoint3D() : EigenVector3f() {}
-  inline EigenPoint3D(const EigenVector3f &e_X) : EigenVector3f(e_X) {}
-  inline EigenPoint3D(const EigenPoint2D &e_x) : EigenVector3f(e_x.x(), e_x.y(), 1.0f) {}
-  inline EigenPoint3D(const EigenPoint2D &e_x, const float z) : EigenVector3f(e_x.x() * z,
-                                                                                e_x.y() * z, z) {}
-  inline EigenPoint3D(const float x, const float y, const float z) : EigenVector3f(x, y, z) {}
-  inline EigenMatrix2x3f GetJacobianProjection() const {
-    EigenMatrix2x3f e_J;
-    const Eigen::Vector3f &e_X = *this;
-    const float zI = 1.0f / e_X.z(), z2I = zI * zI;
-    e_J(0, 0) = zI;   e_J(0, 1) = 0.0f; e_J(0, 2) = -e_X.x() * z2I;
-    e_J(1, 0) = 0.0f; e_J(1, 1) = zI;   e_J(1, 2) = -e_X.y() * z2I;
-    return e_J;
-  }
-};
-#endif
 #endif

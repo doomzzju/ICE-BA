@@ -29,11 +29,6 @@ class Camera {
     Rotation3D m_Ru;
     Point3D m_pu;
     LA::AlignedVector3f m_ba, m_bw/*, m_sa*/;
-#ifdef CFG_STEREO
-    Intrinsic m_Kr;
-    Rotation3D m_Rr;
-    Point3D m_br;
-#endif
   };
   
   class Pose {
@@ -409,29 +404,9 @@ class Camera {
           return LA::AlignedMatrix6x6f::AssertZero(verbose, str, -1.0f, -1.0f);
         }
       };
-#ifdef CFG_IMU_FULL_COVARIANCE
+
       class CM : public Unitary::CM {
       };
-#else
-      class CM {
-       public:
-        inline void operator += (const CM &A) { m_Arv += A.m_Arv; }
-        inline void operator -= (const CM &A) { m_Arv -= A.m_Arv; }
-        inline void MakeMinus() { m_Arv.MakeMinus(); }
-        inline LA::AlignedMatrix6x9f GetAlignedMatrix6x9f() const {
-          LA::AlignedMatrix6x9f A;
-          A.MakeZero();
-          A.SetBlock(3, 0, m_Arv);
-          return A;
-        }
-        inline void Print(const bool e = false) const { m_Arv.Print(e); }
-        static inline void AmB(const CM &A, const CM &B, CM &AmB) {
-          LA::AlignedMatrix3x3f::AmB(A.m_Arv, B.m_Arv, AmB.m_Arv);
-        }
-       public:
-        LA::AlignedMatrix3x3f m_Arv;
-      };
-#endif
       class MC : public LA::AlignedMatrix9x6f {
        public:
         inline MC operator - (const MC &B) const {
@@ -474,7 +449,7 @@ class Camera {
           return false;
         }
       };
-#ifdef CFG_IMU_FULL_COVARIANCE
+
       class MM : public LA::AlignedMatrix9x9f {
        public:
         inline MM operator - (const MM &B) const {
@@ -523,65 +498,6 @@ class Camera {
           return false;
         }
       };
-#else
-      class MM {
-       public:
-        inline void operator += (const MM &A) {
-          for (int i = 0; i < 9; ++i) {
-            m_data[i] += A.m_data[i];
-          }
-          m_Ababa += A.m_Ababa;
-          m_Abwbw += A.m_Abwbw;
-        }
-        inline void operator -= (const MM &A) {
-          for (int i = 0; i < 9; ++i) {
-            m_data[i] -= A.m_data[i];
-          }
-          m_Ababa -= A.m_Ababa;
-          m_Abwbw -= A.m_Abwbw;
-        }
-        inline void MakeMinus() {
-          for (int i = 0; i < 9; ++i) {
-            m_data[i].vmake_minus();
-          }
-          m_Ababa = -m_Ababa;
-          m_Abwbw = -m_Abwbw;
-        }
-        inline LA::Matrix9x9f GetMatrix9x9f() const {
-          LA::Matrix9x9f A;
-          A.MakeZero();
-          for (int i = 0; i < 9; ++i) {
-            memcpy(A[i], m_Amv[i], 12);
-          }
-          A[3][3] = A[4][4] = A[5][5] = m_Ababa;
-          A[6][6] = A[7][7] = A[8][8] = m_Abwbw;
-          return A;
-        }
-        inline void Print(const bool e = false) const {
-          m_Amv.Print(e);
-          if (e) {
-            UT::Print("%e %e\n", m_Ababa, m_Abwbw);
-          } else {
-            UT::Print("%f %f\n", m_Ababa, m_Abwbw);
-          }
-        }
-        static inline void AmB(const MM &A, const MM &B, MM &AmB) {
-          for (int i = 0; i < 9; ++i) {
-            AmB.m_data[i] = A.m_data[i] - B.m_data[i];
-          }
-          AmB.m_Ababa = A.m_Ababa - B.m_Ababa;
-          AmB.m_Abwbw = A.m_Abwbw - B.m_Abwbw;
-        }
-       public:
-        union {
-          struct {
-            LA::AlignedMatrix9x3f m_Amv;
-            float m_Ababa, m_Abwbw;
-          };
-          xp128f m_data[10];
-        };
-      };
-#endif
      public:
       inline void operator += (const Binary &A) {
         m_Acc += A.m_Acc;
@@ -673,35 +589,6 @@ class Camera {
 
   class Conditioner {
    public:
-#ifdef CFG_PCG_FULL_BLOCK
-    class C : public LA::AlignedMatrix6x6f {
-     public:
-      inline void Set(const Factor::Unitary::CC &A, const float *aMax = NULL,
-                      const float *eps = NULL) {
-        A.m_A.GetAlignedMatrix6x6f(*this);
-        if (!InverseLDL(eps)) {
-          MakeZero();
-        }
-      }
-      template<typename TYPE>
-      inline void Apply(const LA::ProductVector6f &x, TYPE *Mx) const {
-        LA::AlignedMatrix6x6f::Ab(*this, x, Mx);
-      }
-    };
-    class M : public LA::AlignedMatrix9x9f {
-     public:
-      inline void Set(const LA::AlignedMatrix9x9f &A, const float *aMax = NULL,
-                      const float *eps = NULL) {
-        if (!A.GetInverseLDL(*this, eps)) {
-          MakeZero();
-        }
-      }
-      template<typename TYPE>
-      inline void Apply(const LA::AlignedVector9f &x, TYPE *Mx) const {
-        LA::AlignedMatrix9x9f::Ab(*this, x, Mx);
-      }
-    };
-#else
     class C {
      public:
       inline void operator *= (const xp128f &s) { m_Mp *= s; m_Mr *= s; }
@@ -787,89 +674,7 @@ class Camera {
      public:
       LA::AlignedMatrix3x3f m_Mv, m_Mba, m_Mbw;
     };
-#endif
   };
-
-#ifdef CFG_DEBUG_EIGEN
-  class EigenFactor {
-   public:
-    class Unitary {
-     public:
-      inline void MakeZero() {
-        m_Acm.setZero();
-        m_Amm.setZero();
-      }
-      inline void operator = (const Factor::Unitary &A) {
-        m_Acm = A.m_Acm;
-        m_Amm = A.m_Amm.m_A;
-      }
-      inline bool AssertEqual(const Factor::Unitary &A, const int verobse = 1,
-                              const std::string str = "") const {
-        return m_Acm.AssertEqual(A.m_Acm, verobse, str + ".m_Acm") &&
-               m_Amm.AssertEqual(A.m_Amm.m_A, verobse, str + ".m_Amm");
-      }
-     public:
-      EigenMatrix6x9f m_Acm;
-      EigenMatrix9x9f m_Amm;
-    };
-    class Binary {
-     public:
-      inline void MakeZero() {
-        m_Acc.setZero();
-        m_Acm.setZero();
-        m_Amc.setZero();
-        m_Amm.setZero();
-      }
-      inline void operator = (const Factor::Binary &A) {
-        m_Acc = A.m_Acc;
-        m_Amc = A.m_Amc;
-#ifdef CFG_IMU_FULL_COVARIANCE
-        m_Acm = A.m_Acm;
-        m_Amm = A.m_Amm;
-#else
-        m_Acm = A.m_Acm.GetAlignedMatrix6x9f();
-        m_Amm = A.m_Amm.GetMatrix9x9f();
-#endif
-      }
-      inline void AssertEqual(const Factor::Binary &A, const int verbose = 1,
-                              const std::string str = "") const {
-        m_Acc.AssertEqual(A.m_Acc, verbose, str + ".m_Acc");
-        m_Amc.AssertEqual(A.m_Amc, verbose, str + ".m_Amc");
-#ifdef CFG_IMU_FULL_COVARIANCE
-        m_Acm.AssertEqual(A.m_Acm, verbose, str + ".m_Acm");
-        m_Amm.AssertEqual(A.m_Amm, verbose, str + ".m_Amm");
-#else
-        m_Acm.AssertEqual(A.m_Acm.GetAlignedMatrix6x9f(), verbose, str + ".m_Acm");
-        m_Amm.AssertEqual(A.m_Amm.GetMatrix9x9f(), verbose, str + ".m_Amm");
-#endif
-      }
-     public:
-      EigenMatrix6x6f m_Acc;
-      EigenMatrix6x9f m_Acm;
-      EigenMatrix9x6f m_Amc;
-      EigenMatrix9x9f m_Amm;
-    };
-   public:
-    inline EigenFactor() {}
-    inline EigenFactor(const Factor &A) { *this = A; }
-    inline void MakeZero() {
-      m_Au.MakeZero();
-      m_Ab.MakeZero();
-    }
-    inline void operator = (const Factor &A) {
-      m_Au = A.m_Au;
-      m_Ab = A.m_Ab;
-    }
-    inline void AssertEqual(const Factor &A, const int verbose = 1,
-                            const std::string str = "") const {
-      m_Au.AssertEqual(A.m_Au, verbose, str + ".m_Au");
-      m_Ab.AssertEqual(A.m_Ab, verbose, str + ".m_Ab");
-    }
-   public:
-    Unitary m_Au;
-    Binary m_Ab;
-  };
-#endif
 
   class Fix {
    public:
@@ -1011,36 +816,6 @@ class Camera {
      public:
       xp128f m_wr, m_wp;
       Rotation3D m_RT;
-#ifdef CFG_DEBUG_EIGEN
-     public:
-      class EigenErrorJacobian {
-       public:
-        EigenVector3f m_er, m_ep;
-        EigenMatrix3x3f m_Jr;
-      };
-      class EigenFactor {
-       public:
-        inline void operator = (const Factor &A) {
-          m_A = A.m_A.m_A;
-          m_b = A.m_A.m_b;
-          m_F = A.m_F;
-        }
-        inline void AssertEqual(const Factor &A, const int verbose = 1,
-                                const std::string str = "") const {
-          m_A.AssertEqual(A.m_A.m_A, verbose, str + ".m_A");
-          m_b.AssertEqual(A.m_A.m_b, verbose, str + ".m_b");
-          UT::AssertEqual(m_F, A.m_F, verbose, str + ".m_F");
-        }
-       public:
-        EigenMatrix6x6f m_A;
-        EigenVector6f m_b;
-        float m_F;
-      };
-     public:
-      EigenErrorJacobian EigenGetErrorJacobian(const Rigid3D &T, const float eps) const;
-      EigenFactor EigenGetFactor(const Rigid3D &T, const float eps) const;
-      float EigenGetCost(const Rigid3D &T, const EigenVector6f &e_x, const float eps) const;
-#endif
     };
     class Zero {
      public:

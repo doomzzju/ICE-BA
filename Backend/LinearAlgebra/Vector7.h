@@ -91,16 +91,10 @@ class AlignedVector7f {
   }
 
   inline float SquaredLength() const {
-  #ifdef CFG_DEBUG
-    UT_ASSERT(m_data4[1][3] == 0.0f);
-  #endif
     // Make sure m_data4[1][3] is always 0
     return (v0123() * v0123() + v456x() * v456x()).vsum_all();
   }
   inline float Dot(const AlignedVector7f &v) const {
-  #ifdef CFG_DEBUG
-    UT_ASSERT(m_data4[1][3] == 0.0f || v.m_data4[1][3] == 0.0f);
-  #endif
     // Make sure m_data4[1][3] is always 0
     return (v0123() * v.v0123() + v456x() * v.v456x()).vsum_all();
   }
@@ -154,44 +148,4 @@ class AlignedVector7f {
 };
 }
 
-#ifdef CFG_DEBUG_EIGEN
-#include <Eigen/Eigen>
-class EigenVector7f : public Eigen::Matrix<float, 7, 1> {
- public:
-  inline EigenVector7f() : Eigen::Matrix<float, 7, 1>() {}
-  inline EigenVector7f(const Eigen::Matrix<float, 7, 1> &e_v) : Eigen::Matrix<float, 7, 1>(e_v) {}
-  inline EigenVector7f(const LA::AlignedVector7f &v) : Eigen::Matrix<float, 7, 1>() {
-    const float* _v = v;
-    Eigen::Matrix<float, 7, 1> &e_v = *this;
-    for (int i = 0; i < 7; ++i)
-      e_v(i, 0) = _v[i];
-  }
-  inline void operator = (const Eigen::Matrix<float, 7, 1> &e_v) {
-    *((Eigen::Matrix<float, 7, 1> *) this) = e_v;
-  }
-  inline LA::AlignedVector7f GetAlignedVector7f() const {
-    LA::AlignedVector7f v;
-    float* _v = v;
-    const Eigen::Matrix<float, 7, 1> &e_v = *this;
-    for (int i = 0; i < 7; ++i)
-      _v[i] = e_v(i, 0);
-    return v;
-  }
-  inline float SquaredLength() const { return GetAlignedVector7f().SquaredLength(); }
-  inline void Print(const bool e = false) const { GetAlignedVector7f().Print(e); }
-  static inline EigenVector7f GetRandom(const float vMax) {
-    return EigenVector7f(LA::AlignedVector7f::GetRandom(vMax));
-  }
-  inline bool AssertEqual(const LA::AlignedVector7f &v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetAlignedVector7f().AssertEqual(v, verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertEqual(const EigenVector7f &e_v,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return AssertEqual(e_v.GetAlignedVector7f(), verbose, str, epsAbs, epsRel);
-  }
-};
-#endif
 #endif

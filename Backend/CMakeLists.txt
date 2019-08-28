@@ -60,16 +60,16 @@ if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
 endif()
 
 # Debug / Release / RelWithDebInfo
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE RelWithDebInfo)
 
 # Thirdparty dependencies
 # If CFG_VIEW is turned on, need to install glut (freeglut3-dev) and glew (libglew-dev)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(CVD)
-#find_package(Boost COMPONENTS thread system filesystem REQUIRED)
-#find_package(Eigen REQUIRED)
-#find_package(Glog REQUIRED)
+find_package(Boost COMPONENTS thread system filesystem REQUIRED)
+find_package(Eigen REQUIRED)
+find_package(Glog REQUIRED)
 if (CVD_FOUND)
  add_definitions(-DIBA_WITH_CVD)
  find_package(OpenGL REQUIRED)
@@ -216,6 +216,13 @@ set(IBA_INCLUDE_DIRS
  Map
  Utility
 )
+
+if (CVD_FOUND)
+set(VISUALIZATION_INCLUDE_DIR
+ Visualization
+)
+endif(CVD_FOUND)
+
 set(GLOBAL_IBA_INCLUDE_DIRS
  ${PROJECT_SOURCE_DIR}/IBA
  ${PROJECT_SOURCE_DIR}/BundleAdjustment
@@ -225,6 +232,14 @@ set(GLOBAL_IBA_INCLUDE_DIRS
  ${PROJECT_SOURCE_DIR}/Utility
  CACHE INTERNAL "IBA include dirs"
 )
+
+if (CVD_FOUND)
+set(GLOBAL_VISUALIZATION_INCLUDE_DIR
+ ${PROJECT_SOURCE_DIR}/Visualization
+ CACHE INTERNAL "vis include dir"
+)
+endif(CVD_FOUND)
+
 set(HEADERS_IBA
  IBA/IBA.h
  IBA/IBA_config.h
@@ -248,34 +263,8 @@ set(SOURCES_IBA
  ${SOURCES_MAP}
  ${SOURCES_UTILITY}
 )
-add_library(IBA SHARED
- ${SOURCES_IBA}
-)
-target_include_directories(IBA PUBLIC
- ${IBA_INCLUDE_DIRS}
- ${CMAKE_CURRENT_SOURCE_DIR}
- #${EIGEN_INCLUDE_DIR}
- #${Boost_INCLUDE_DIR}
- #${GLOG_INCLUDE_DIRS}
-)
-target_link_libraries(IBA
- ${Boost_LIBRARIES}
- ${GLOG_LIBRARIES}
- ${X11_LIBRARIES}
- pthread
-)
 
-# =========================
-# Visualization
-# =========================
 if (CVD_FOUND)
-set(VISUALIZATION_INCLUDE_DIR
- Visualization
-)
-set(GLOBAL_VISUALIZATION_INCLUDE_DIR
- ${PROJECT_SOURCE_DIR}/Visualization
- CACHE INTERNAL "vis include dir"
-)
 set(HEADERS_VISUALIZATION
  Visualization/Arcball.h
  Visualization/EventHandler.h
@@ -293,10 +282,33 @@ set(SOURCES_VISUALIZATION
  Visualization/ViewerIBADraw.cpp
  Visualization/ViewerIBAIO.cpp
 )
-add_library(IBAVis SHARED
+endif(CVD_FOUND)
+
+if (CVD_FOUND)
+set(SOURCES_TOTAL
+ ${SOURCES_IBA}
  ${SOURCES_VISUALIZATION}
 )
-target_include_directories(IBAVis PUBLIC
+else (CVD_FOUND)
+set(SOURCES_TOTAL
+ ${SOURCES_IBA}
+)
+endif(CVD_FOUND)
+
+add_library(IBA SHARED
+ ${SOURCES_TOTAL}
+)
+
+target_include_directories(IBA PUBLIC
+ ${IBA_INCLUDE_DIRS}
+ ${CMAKE_CURRENT_SOURCE_DIR}
+ ${EIGEN_INCLUDE_DIR}
+ ${Boost_INCLUDE_DIR}
+ ${GLOG_INCLUDE_DIRS}
+)
+
+if (CVD_FOUND)
+target_include_directories(IBA PUBLIC
  ${VISUALIZATION_INCLUDE_DIR}
  ${IBA_INCLUDE_DIRS}
  ${CVD_INCLUDE_DIRS}
@@ -306,16 +318,21 @@ target_include_directories(IBAVis PUBLIC
  ${CMAKE_CURRENT_SOURCE_DIR}
  ${EIGEN_INCLUDE_DIR}
 )
+endif(CVD_FOUND)
 
-target_link_libraries(IBAVis
- IBA
+target_link_libraries(IBA
  ${Boost_LIBRARIES}
+ ${GLOG_LIBRARIES}
+ ${X11_LIBRARIES}
+ pthread
+)
+
+if (CVD_FOUND)
+target_link_libraries(IBA
  ${CVD_LIBRARIES}
  ${OPENGL_LIBRARIES}
  ${GLUT_LIBRARY}
  ${GLEW_LIBRARIES}
- ${X11_LIBRARIES}
  Xrandr
- pthread
 )
 endif(CVD_FOUND)

@@ -43,9 +43,6 @@ class Similarity3D : public Rotation3D {
   inline const float& tz  () const { return r2 (); }    inline float& tz  () { return r2 (); }
 
   inline Point3D operator * (const Point3D &X) const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(X.w() == 1.0f);
-#endif
     Point3D SX;
     Apply(X, SX);
     return SX;
@@ -68,9 +65,6 @@ class Similarity3D : public Rotation3D {
   }
 
   inline void Apply(const Point3D &X, LA::AlignedVector3f &SX) const {
-#ifdef CFG_DEBUG
-    UT_ASSERT(X.w() == 1.0f);
-#endif
     SX.x() = SIMD::Sum(_mm_mul_ps(sr00_sr01_sr02_tx(), X.xyzw()));
     SX.y() = SIMD::Sum(_mm_mul_ps(sr10_sr11_sr12_ty(), X.xyzw()));
     SX.z() = SIMD::Sum(_mm_mul_ps(sr20_sr21_sr22_tz(), X.xyzw()));
@@ -108,34 +102,5 @@ class Similarity3D : public Rotation3D {
   Rotation3D m_R;
   LA::AlignedVector3f m_t;
 };
-
-#ifdef CFG_DEBUG_EIGEN
-class EigenSimilarity3D {
- public:
-  inline EigenSimilarity3D() {}
-#ifdef _MSC_VER
-  inline EigenSimilarity3D(const Similarity3D &S) : m_s(S.m_s[0]), m_R(S.m_R), m_t(S.m_t) {}
-#else
-  inline EigenSimilarity3D(const Similarity3D &S) : m_s(S.m_s[0]), m_R(S.m_R), m_t(S.m_t) {}
-#endif  // _MSC_VER
-  inline EigenSimilarity3D(const float e_s, const EigenRotation3D &e_R,
-                           const EigenVector3f &e_t) : m_s(e_s), m_R(e_R), m_t(e_t) {}
-  inline EigenVector3f operator * (const EigenVector3f &e_X) const {
-    return EigenVector3f(m_s * m_R * e_X + m_t);
-  }
-  inline Similarity3D GetSimilarity() const {
-    Similarity3D S;
-    S.m_s = _mm_set1_ps(m_s);
-    S.m_R = m_R.GetAlignedMatrix3x3f();
-    S.m_t = m_t.GetAlignedVector3f();
-    S.Update();
-    return S;
-  }
- public:
-  float m_s;
-  EigenRotation3D m_R;
-  EigenVector3f m_t;
-};
-#endif
 
 #endif

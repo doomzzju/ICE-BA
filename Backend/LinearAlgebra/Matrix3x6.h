@@ -142,49 +142,4 @@ class AlignedMatrix3x6f {
 };
 }
 
-#ifdef CFG_DEBUG_EIGEN
-#include <Eigen/Eigen>
-class EigenMatrix3x6f : public Eigen::Matrix<float, 3, 6> {
- public:
-  inline EigenMatrix3x6f() : Eigen::Matrix<float, 3, 6>() {}
-  inline EigenMatrix3x6f(const Eigen::Matrix<float, 3, 6> &e_M) : Eigen::Matrix<float, 3, 6>(e_M) {}
-  inline EigenMatrix3x6f(const LA::AlignedMatrix3x6f &M) : Eigen::Matrix<float, 3, 6>() {
-    const float* _M[3] = {&M.m00(), &M.m10(), &M.m20()};
-    Eigen::Matrix<float, 3, 6> &e_M = *this;
-    for (int i = 0; i < 3; ++i)
-      for (int j = 0; j < 6; ++j)
-        e_M(i, j) = _M[i][j];
-  }
-  inline EigenMatrix3x6f(const EigenMatrix3x3f &e_M0, const EigenMatrix3x3f &e_M1) {
-    block<3, 3>(0, 0) = e_M0;
-    block<3, 3>(0, 3) = e_M1;
-  }
-  inline EigenMatrix3x6f(const EigenMatrix2x3f &e_M00, const EigenMatrix2x3f &e_M01,
-                         const Eigen::Matrix<float, 1, 3> &e_M10, const Eigen::Matrix<float, 1, 3> &e_M11) {
-    block<2, 3>(0, 0) = e_M00;  block<2, 3>(0, 3) = e_M01;
-    block<1, 3>(2, 0) = e_M10;  block<1, 3>(2, 3) = e_M11;
-  }
-  inline void operator = (const Eigen::Matrix<float, 3, 6> &e_M) { *((Eigen::Matrix<float, 3, 6> *) this) = e_M; }
-  inline LA::AlignedMatrix3x6f GetAlignedMatrix3x6f() const {
-    LA::AlignedMatrix3x6f M;
-    float* _M[3] = {&M.m00(), &M.m10(), &M.m20()};
-    const Eigen::Matrix<float, 3, 6> &e_M = *this;
-    for (int i = 0; i < 3; ++i)
-      for (int j = 0; j < 6; ++j)
-        _M[i][j] = e_M(i, j);
-    return M;
-  }
-  inline void Print(const bool e = false) const { GetAlignedMatrix3x6f().Print(e); }
-  inline bool AssertEqual(const LA::AlignedMatrix3x6f &M,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return GetAlignedMatrix3x6f().AssertEqual(M, verbose, str, epsAbs, epsRel);
-  }
-  inline bool AssertEqual(const EigenMatrix3x6f &e_M,
-                          const int verbose = 1, const std::string str = "",
-                          const float epsAbs = 0.0f, const float epsRel = 0.0f) const {
-    return AssertEqual(e_M.GetAlignedMatrix3x6f(), verbose, str, epsAbs, epsRel);
-  }
-};
-#endif
 #endif

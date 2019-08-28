@@ -142,39 +142,21 @@ class Intrinsic {
       m_xs.Bind(RM.m_xs.Data(), RM.m_xs.Size());
       m_ws.Bind(RM.m_ws.Data(), RM.m_ws.Size());
     }
-    inline void Set(const Intrinsic &K
-#ifdef CFG_STEREO
-                  , const Rotation3D *Rr = NULL
-#endif
-                  ) {
+    inline void Set(const Intrinsic &K) {
       struct T {
         float x, x2;
-#ifdef CFG_STEREO
-        float rx, ry, rz;
-#endif
       };
       const int w = K.w(), h = K.h();
       std::vector<T> ts(w);
       for (int xr = 0; xr < w; ++xr) {
         T &t = ts[xr];
         t.x = (xr - K.cx()) * K.fxI();
-#ifdef CFG_STEREO
-        if (Rr) {
-          t.rx = Rr->r00() * t.x;
-          t.ry = Rr->r01() * t.x;
-          t.rz = Rr->r02() * t.x;
-        }
-        else
-#endif
         {
           t.x2 = t.x * t.x;
         }
       }
       Point2D xd;
       float x, x2, y, y2, d2y, d3y, dr;
-#ifdef CFG_STEREO
-      float rx, ry, rz;
-#endif
       const int N = w * h;
       Resize(N);
       const Parameter &k = K.k();
@@ -182,13 +164,6 @@ class Intrinsic {
       const int ixMax = w - 2, iyMax = h - 2;
       for (int yr = 0, i = 0; yr < h; ++yr) {
         const float _y = (yr - K.cy()) * K.fyI();
-#ifdef CFG_STEREO
-        if (Rr) {
-          rx = Rr->r10() * _y + Rr->r20();
-          ry = Rr->r11() * _y + Rr->r21();
-          rz = Rr->r12() * _y + Rr->r22();
-        } else
-#endif
         {
           y = _y;
           y2 = y * y;
@@ -199,19 +174,6 @@ class Intrinsic {
         }
         for (int xr = 0; xr < w; ++xr, ++i) {
           const T &t = ts[xr];
-#ifdef CFG_STEREO
-          if (Rr) {
-            const float d = 1.0f / (t.rz + rz);
-            x = (t.rx + rx) * d;
-            y = (t.ry + ry) * d;
-            x2 = x * x;
-            y2 = y * y;
-            if (tangential) {
-              d2y = k.m_ds[2] * (y + y);
-              d3y = k.m_ds[3] * (y + y);
-            }
-          } else
-#endif
           {
             x = t.x;
             x2 = t.x2;
@@ -410,10 +372,6 @@ class Intrinsic {
     const float ydMax = m_k.m_cy / m_k.m_fy;
     Point2D xd, xn;
 
-#if 0
-//#if 1
-    UT::DebugStart();
-#endif
     float xnMin = -xdMax, xnMax = xdMax;
     float ynMin = -ydMax, ynMax = ydMax;
     for (int i = 0; i < 4; ++i) {
@@ -426,11 +384,6 @@ class Intrinsic {
       if (!Undistort(xd, &xn)) {
         continue;
       }
-#if 0
-//#if 1
-      xd.Print("xd = ", true, false);
-      xn.Print(" xn = ", true, true);
-#endif
       xnMin = std::min(xnMin, xn.x());
       xnMax = std::max(xnMax, xn.x());
       ynMin = std::min(ynMin, xn.y());
@@ -438,14 +391,7 @@ class Intrinsic {
     }
     const float fxr = m_k.m_fx / (xnMax - xnMin) * (xdMax + xdMax);
     const float fyr = m_k.m_fy / (ynMax - ynMin) * (ydMax + ydMax);
-#if 0
-//#if 1
-    UT::Print("%e %e\n", fxr, fyr);
-#endif
-#if 0
-//#if 1
-    UT::DebugStop();
-#endif
+
     return std::min(fxr, fyr);
   }
 
@@ -710,9 +656,6 @@ class Intrinsic {
       xp128f w;
       Point2D xn;
       const int ix1 = int(x), ix2 = ix1 + 1, iy1 = int(y), iy2 = iy1 + 1;
-#ifdef CFG_DEBUG
-      UT_ASSERT(ix1 >= 0 && ix2 < m_xns.w() && iy1 >= 0 && iy2 < m_xns.h());
-#endif
       const Point2D &xn11 = m_xns[iy1][ix1], &xn12 = m_xns[iy2][ix1];
       const Point2D &xn21 = m_xns[iy1][ix2], &xn22 = m_xns[iy2][ix2];
       UT::ImageInterpolateWeight(x - ix1, y - iy1, w);
@@ -793,38 +736,5 @@ class Intrinsic {
   float m_fxx, m_fxxI, m_fxy, m_fxyI, m_fyy, m_fyyI;
 
 };
-
-#ifdef CFG_DEBUG_EIGEN
-class EigenIntrinsic : public Eigen::Matrix3f {
- public:
-  inline EigenIntrinsic() : Eigen::Matrix3f() {}
-  inline EigenIntrinsic(const Eigen::Matrix3f &K) : Eigen::Matrix3f(K) {}
-  inline EigenIntrinsic(const Intrinsic &K) : Eigen::Matrix3f() {
-    Eigen::Matrix3f &e_K = *this;
-    e_K(0, 0) = K.fx(); e_K(0, 1) = 0.0f; e_K(0, 2) = K.cx();
-    e_K(1, 0) = 0.0f; e_K(1, 1) = K.fy(); e_K(1, 2) = K.cy();
-    e_K(2, 0) = 0.0f; e_K(2, 1) = 0.0f; e_K(2, 2) = 1.0f;
-  }
-  inline void operator = (const Eigen::Matrix3f &e_K) { *((Eigen::Matrix3f *) this) = e_K; }
-  inline EigenPoint2D GetNormaliedToImage(const EigenPoint2D &x) const {
-    const Eigen::Matrix3f &e_K = *this;
-    const float e_fx = e_K(0, 0), e_fy = e_K(1, 1), e_cx = e_K(0, 2), e_cy = e_K(1, 2);
-    return EigenPoint2D(e_fx * x.x() + e_cx, e_fy * x.y() + e_cy);
-  }
-  template<typename TYPE> inline EigenPoint2D GetImageToNormalized(const TYPE x, const TYPE y) const {
-    const Eigen::Matrix3f &e_K = *this;
-    const float e_fx = e_K(0, 0), e_fy = e_K(1, 1), e_cx = e_K(0, 2), e_cy = e_K(1, 2);
-    return EigenPoint2D((x - e_cx) / e_fx, (y - e_cy) / e_fy);
-  }
-  inline EigenMatrix2x3f GetNormaliedToImage(const EigenMatrix2x3f &J) const {
-    const Eigen::Matrix3f &e_K = *this;
-    const float e_fx = e_K(0, 0), e_fy = e_K(1, 1);
-    EigenMatrix2x3f e_KJ;
-    e_KJ.block<1, 3>(0, 0) = e_fx * J.block<1, 3>(0, 0);
-    e_KJ.block<1, 3>(1, 0) = e_fy * J.block<1, 3>(1, 0);
-    return e_KJ;
-  }
-};
-#endif
 
 #endif

@@ -95,9 +95,6 @@ class CameraTrajectory {
         fgets(line, UT_STRING_WIDTH_MAX, fp);
       }
       const int n2 = static_cast<int>(vs.size());
-#ifdef CFG_DEBUG
-      UT_ASSERT(n2 == 1 || n2 == 7 || n2 == 8 || n2 == 12 || n2 == 13 || n2 == 17);
-#endif
       const int i = Size();
       const double *_v = vs.data();
       if (n2 == 7 || n2 == 12) {
@@ -150,10 +147,6 @@ class CameraTrajectory {
         }
       } else {
         C.m_T.Set(_v);
-//#ifdef CFG_DEBUG
-#if 0
-        T.AssertOrthogonal();
-#endif
         if (flag & CT_FLAG_INVERSE) {
           C.m_T.Inverse();
         }
@@ -165,10 +158,6 @@ class CameraTrajectory {
         C.m_p.y() = -C.m_p.y();
         C.m_T.Set(q, C.m_p);
       }
-//#ifdef CFG_DEBUG
-#if 0
-      UT_ASSERT(m_ts.empty() || t > m_ts.back());
-#endif
       if (!m_ts.empty() && t < m_ts.back()) {
         continue;
       }
@@ -226,11 +215,6 @@ class CameraTrajectory {
 
   inline void MakeSubset(const std::vector<int> &idxs) {
     const int N = static_cast<int>(idxs.size());
-#ifdef CFG_DEBUG
-    for (int i = 1; i < N; ++i) {
-      UT_ASSERT(idxs[i - 1] < idxs[i]);
-    }
-#endif
     for (int i = 0; i < N; ++i) {
       const int j = idxs[i];
       m_Cs[i] = m_Cs[j];
@@ -268,26 +252,6 @@ class CameraTrajectory {
   }
 
   inline void Interpolate(const float t, Camera &C) const {
-#if 0
-#ifdef CFG_DEBUG
-    UT_ASSERT(m_ts.size() >= 2);
-#endif
-    int i1, i2;
-    if (t <= m_ts.front()) {
-      i1 = 0;
-      i2 = 1;
-    } else if (t >= m_ts.back()) {
-      const int N = static_cast<int>(m_ts.size());
-      i1 = N - 2;
-      i2 = N - 1;
-    } else {
-      i2 = int(std::upper_bound(m_ts.begin(), m_ts.end(), t) - m_ts.begin());
-      i1 = i2 - 1;
-    }
-#else
-#ifdef CFG_DEBUG
-    UT_ASSERT(!m_ts.empty());
-#endif
     if (t <= m_ts.front()) {
       C = m_Cs.Front();
       return;
@@ -297,7 +261,6 @@ class CameraTrajectory {
     }
     const int i2 = int(std::upper_bound(m_ts.begin(), m_ts.end(), t) - m_ts.begin());
     const int i1 = i2 - 1;
-#endif
     const float t1 = m_ts[i1], t2 = m_ts[i2];
     const float w1 = (t2 - t) / (t2 - t1);
     const Camera &C1 = m_Cs[i1], &C2 = m_Cs[i2];

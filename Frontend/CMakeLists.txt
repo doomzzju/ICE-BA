@@ -9,10 +9,10 @@ endif()
 
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/../cmake)
 
-#find_package(Glog REQUIRED)
-#find_package(GFlags REQUIRED)
-#find_package(OpenCV REQUIRED)
-#find_package(Yaml REQUIRED)
+find_package(Glog REQUIRED)
+find_package(GFlags REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(Yaml REQUIRED)
 
 #include_directories (${GLOG_INCLUDE_DIR})
 

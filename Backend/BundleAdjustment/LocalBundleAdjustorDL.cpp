@@ -19,10 +19,6 @@
 //#endif
 #include "LocalBundleAdjustor.h"
 
-#if defined WIN32 && defined CFG_DEBUG && defined CFG_GROUND_TRUTH
-//#define LBA_DEBUG_GROUND_TRUTH_MEASUREMENT
-#endif
-
 void LocalBundleAdjustor::SolveDogLeg() {
   if (m_x2GN <= m_delta2 || BA_DL_MAX_ITERATIONS == 0) {
     m_xsDL.Set(m_xsGN);
@@ -149,13 +145,6 @@ void LocalBundleAdjustor::SolveGradientDescent() {
   const float xl = m_bl / m_gTAg;
   m_xsGD *= -xl;
   m_x2GD = xl * xl;
-//#ifdef CFG_DEBUG
-#if 0
-  if (m_debug) {
-    const float x2GD = m_xsGD.SquaredLength();
-    UT::AssertEqual(x2GD, m_x2GD);
-  }
-#endif
 }
 
 void LocalBundleAdjustor::ComputeReduction() {
@@ -199,10 +188,6 @@ void LocalBundleAdjustor::ComputeReductionFeatureLF() {
         continue;
       }
       *Tr = C / m_CsKF[iKF];
-#ifdef CFG_STEREO
-      Tr[1] = Tr[0];
-      Tr[1].SetTranslation(m_K.m_br + Tr[0].GetTranslation());
-#endif
       const int id = m_iKF2d[iKF], iX = m_iKF2X[iKF];
       const Depth::InverseGaussian *ds = m_ds.data() + id;
       const ubyte *uds = m_uds.data() + id;
@@ -218,22 +203,10 @@ void LocalBundleAdjustor::ComputeReductionFeatureLF() {
         FTR::GetReduction(LF.m_Lzs[iz], Tr, KF.m_xs[ix], ds[ix], z, xc, xd, Ra, Rp);
         dFa = Ra.m_dF + dFa;
         dFp = Rp.m_dF + dFp;
-//#ifdef CFG_DEBUG
-#if 0
-        if (m_iIter == 1 && ic == 1) {
-          UT::Print("%d %e %e\n", iz, Ra.m_dF, Rp.m_dF);
-        }
-#endif
       }
     }
     m_dFa = dFa + m_dFa;
     m_dFp = dFp + m_dFp;
-//#ifdef CFG_DEBUG
-#if 0
-    if (m_iIter == 0) {
-      UT::Print("%d %f\n", ic, dFa);
-    }
-#endif
   }
 }
 
@@ -254,15 +227,8 @@ void LocalBundleAdjustor::ComputeReductionFeatureKF() {
         continue;
       }
       *Tr = C / m_CsKF[_iKF];
-#ifdef CFG_STEREO
-      Tr[1] = Tr[0];
-      Tr[1].SetTranslation(m_K.m_br + Tr[0].GetTranslation());
-#endif
       const int id = m_iKF2d[_iKF], iX = m_iKF2X[_iKF];
       const Depth::InverseGaussian *ds = m_ds.data() + id;
-#ifdef CFG_DEBUG
-      UT_ASSERT(iX != -1);
-#endif
       const ubyte *uds = m_uds.data() + id;
       const float *xds = m_xds.Data() + iX;
       const KeyFrame &_KF = m_KFs[_iKF];
@@ -273,32 +239,17 @@ void LocalBundleAdjustor::ComputeReductionFeatureKF() {
           continue;
         }
         FTR::GetReduction(KF.m_Azs[iz], Tr, _KF.m_xs[ix], ds[ix], z, xds[ix], Ra, Rp);
-//#ifdef CFG_DEBUG
-#if 0
-        if (iKF == 43) {
-          UT::Print("[%d] %d %d %f\n", _KF.m_T.m_iFrm, ix, iz, Ra.m_dF);
-        }
-#endif
         dFa = Ra.m_dF + dFa;
         dFp = Rp.m_dF + dFp;
       }
     }
     m_dFa = dFa + m_dFa;
     m_dFp = dFp + m_dFp;
-//#ifdef CFG_DEBUG
-#if 0
-    if (m_iIter == 0) {
-      UT::Print("%d %f\n", iKF, dFa);
-    }
-#endif
   }
 }
 
 void LocalBundleAdjustor::ComputeReductionPriorDepth() {
   Depth::Prior::Reduction Ra, Rp;
-#ifdef CFG_STEREO
-  FTR::Reduction Rar, Rpr;
-#endif
   const int nKFs = int(m_KFs.size());
   for (int iKF = 0; iKF < nKFs; ++iKF) {
     if (!(m_ucsKF[iKF] & LBA_FLAG_FRAME_UPDATE_DEPTH)) {
@@ -307,9 +258,6 @@ void LocalBundleAdjustor::ComputeReductionPriorDepth() {
     const int id = m_iKF2d[iKF], iX = m_iKF2X[iKF];
     const ubyte *uds = m_uds.data() + id;
     const Depth::InverseGaussian *ds = m_ds.data() + id;
-#ifdef CFG_DEBUG
-    UT_ASSERT(iX != -1);
-#endif
     const float *xds = m_xds.Data() + iX;
     const KeyFrame &KF = m_KFs[iKF];
     const Depth::Prior zp(KF.m_d.u(), 1.0f / (BA_VARIANCE_PRIOR_FRAME_DEPTH + KF.m_d.s2()));
@@ -318,14 +266,6 @@ void LocalBundleAdjustor::ComputeReductionPriorDepth() {
       if (!(uds[ix] & LBA_FLAG_TRACK_UPDATE_DEPTH)) {
         continue;
       }
-#ifdef CFG_STEREO
-      if (KF.m_xs[ix].m_xr.Valid()) {
-        FTR::GetReduction(KF.m_Ards[ix], m_K.m_br, ds[ix], KF.m_xs[ix], xds[ix], Rar, Rpr);
-        m_dFa = Rar.m_dF + m_dFa;
-        m_dFp = Rpr.m_dF + m_dFp;
-      }
-      else
-#endif
       {
         zp.GetReduction(KF.m_Apds[ix], ds[ix].u(), xds[ix], Ra, Rp);
         m_dFa = Ra.m_dF + m_dFa;
@@ -394,28 +334,10 @@ void LocalBundleAdjustor::ComputeReductionIMU() {
                &(xbw[r2] = LA::AlignedVector3f(&xms[ic2].v6())) : NULL;
     if (!ucm && !m_ucmsLF[iLF1])
       continue;
-//#ifdef CFG_DEBUG
-#if 0
-    m_DsLF[iLF2].m_W.m_Wr.MakeZero();
-    m_DsLF[iLF2].m_W.m_Wv.MakeZero();
-    //m_DsLF[iLF2].m_W.m_Wp.MakeZero();
-#endif
     m_DsLF[iLF2].GetReduction(BA_WEIGHT_IMU, m_AdsLF[iLF2], m_CsLF[iLF1], m_CsLF[iLF2], m_K.m_pu,
                               _xp[r1], _xr[r1], _xv[r1], _xba[r1], _xbw[r1],
                               _xp[r2], _xr[r2], _xv[r2], _xba[r2], _xbw[r2], Ra, Rp,
                               BA_ANGLE_EPSILON);
-//#ifdef CFG_DEBUG
-#if 0
-    UT::PrintSeparator();
-    Rp.m_e.m_er.Print();
-    Rp.m_e.m_ev.Print();
-    Rp.m_e.m_ep.Print();
-    const float F = m_DsLF[iLF2].GetCost(BA_WEIGHT_IMU, Rp.m_e);
-#endif
-//#ifdef CFG_DEBUG
-#if 0
-    UT::Print("(%d, %d): %f + %f = %f\n", ic1, ic2, Rp.m_dF, m_dFp, Rp.m_dF + m_dFp);
-#endif
     m_dFa = Ra.m_dF + m_dFa;
     m_dFp = Rp.m_dF + m_dFp;
   }
@@ -642,14 +564,6 @@ bool LocalBundleAdjustor::UpdateStatesPropose() {
         continue;
       }
       const float axd = fabs(xds[ix]);
-//#ifdef CFG_DEBUG
-#if 0
-      if (axd > 40.0f) {
-        UT::DebugStart();
-        UT::Print("[%d] %d %f\n", KF.m_T.m_iFrm, ix, xds[ix]);
-        UT::DebugStop();
-      }
-#endif
       if (axd < BA_UPDATE_DEPTH) {
         continue;
       }
@@ -761,11 +675,6 @@ bool LocalBundleAdjustor::UpdateStatesDecide() {
     IMU::PreIntegrate(m_LFs[iLF2].m_us, m_LFs[iLF1].m_T.m_t, m_LFs[iLF2].m_T.m_t, m_CsLF[iLF1], &D,
                       &m_work, true, D.m_u1.Valid() ? &D.m_u1 : NULL,
                       D.m_u2.Valid() ? &D.m_u2 : NULL, BA_ANGLE_EPSILON);
-#ifdef LBA_DEBUG_GROUND_TRUTH_MEASUREMENT
-    if (!m_CsLFGT.Empty()) {
-      D.DebugSetMeasurement(m_CsLFGT[iLF1], m_CsLFGT[iLF2], m_K.m_pu, BA_ANGLE_EPSILON);
-    }
-#endif
     //if (UT::Debugging()) {
     //  UT::DebugStop();
     //}
@@ -863,56 +772,22 @@ void LocalBundleAdjustor::ConvertCameraMotionResiduals(const LA::AlignedVectorXf
                                                        const LA::AlignedVectorXf &zs,
                                                        float *Se2, float *e2Max) {
   const int N = rs.Size();
-#ifdef CFG_DEBUG
-  UT_ASSERT(zs.Size() == N);
-#endif
   m_x2s.Resize(N);
   SIMD::Multiply(N, rs.Data(), zs.Data(), m_x2s.Data());
   if (LBA_PCG_CONDITIONER_BAND <= 1) {
     *Se2 = 0.0f;
     *e2Max = 0.0f;
-#ifdef CFG_PCG_FULL_BLOCK
-    const int Nc = static_cast<int>(m_LFs.size());
-    const LA::Vector6f *e2cs = (LA::Vector6f *) m_x2s.Data();
-    for (int ic = 0; ic < Nc; ++ic) {
-      const float e2 = e2cs[ic].Sum();
-#ifdef CFG_DEBUG
-      UT_ASSERT(e2 >= 0.0f);
-#endif
-      *Se2 = e2 + *Se2;
-      *e2Max = std::max(e2, *e2Max);
-    }
-    const LA::Vector9f *e2ms = (LA::Vector9f *) (e2cs + Nc);
-    for (int ic = 0; ic < Nc; ++ic) {
-      const float e2 = e2ms[ic].Sum();
-#ifdef CFG_DEBUG
-      UT_ASSERT(e2 >= 0.0f);
-#endif
-      *Se2 = e2 + *Se2;
-      *e2Max = std::max(e2, *e2Max);
-    }
-#else
+
     const LA::Vector3f *e2s = (LA::Vector3f *) m_x2s.Data();
     const int _N = N / 3;
-#ifdef CFG_DEBUG
-    UT_ASSERT(N == _N * 3);
-#endif
     for (int i = 0; i < _N; ++i) {
       const float e2 = e2s[i].Sum();
       // TODO (haomin): Bad condition!!!
-#ifdef CFG_DEBUG
-//#if 0
-      UT_ASSERT(e2 >= 0.0f);
-#endif
       *Se2 = e2 + *Se2;
       *e2Max = std::max(e2, *e2Max);
     }
-#endif
   } else {
     *Se2 = *e2Max = m_x2s.Sum();
-#ifdef CFG_DEBUG
-    UT_ASSERT(*Se2 >= 0.0f);
-#endif
   }
 }
 
@@ -921,15 +796,6 @@ void LocalBundleAdjustor::ConvertDepthUpdates(const float *xs, LA::AlignedVector
   const int Nd = m_xds.Size();
   xds->Resize(Nd);
   const int nKFs = int(m_KFs.size());
-#ifdef CFG_DEBUG
-  int SN = 0;
-  for (int iKF = 0; iKF < nKFs; ++iKF) {
-    if (m_iKF2X[iKF] != -1) {
-      SN += int(m_KFs[iKF].m_xs.size());
-    }
-  }
-  UT_ASSERT(Nd == SN);
-#endif
   for (int iKF = 0; iKF < nKFs; ++iKF) {
     const int iX = m_iKF2X[iKF];
     if (iX == -1)
